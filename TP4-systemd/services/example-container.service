@@ -1,0 +1,15 @@
+[Unit]
+Description=Example Podman Container
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/podman run --name example-container nginx:alpine
+ExecStop=/usr/bin/podman stop example-container
+ExecStopPost=/usr/bin/podman rm -f example-container
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

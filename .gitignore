@@ -1,0 +1,34 @@
+# Secrets
+*.pem
+*.key
+*.crt
+.env*
+!.env.example
+credentials/
+
+# Logs
+*.log
+logs/
+
+# Temp
+*.tmp
+*.bak
+temp/
+
+# Terraform
+*.tfstate*
+.terraform/
+terraform.tfvars
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# AWS
+instance-info.txt
+aws-credentials.txt

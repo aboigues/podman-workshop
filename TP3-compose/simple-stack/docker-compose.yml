@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    image: nginx:alpine
+    container_name: simple-web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    networks:
+      - simple-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: simple-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - simple-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  simple-network:
+    driver: bridge
