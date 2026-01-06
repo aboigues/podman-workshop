@@ -69,7 +69,7 @@ fi
 
 # Build des images
 info "Construction des images..."
-if ! podman-compose build --parallel 2>&1 | grep -v "WARN"; then
+if ! podman-compose build 2>&1 | grep -v "WARN"; then
     error "Échec du build des images"
     ((FAILED++))
 else
