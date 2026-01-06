@@ -65,7 +65,8 @@ check_container_running() {
 check_port_mapping() {
     local container_name=$1
     local expected_port=$2
-    local actual_port=$(podman port "$container_name" 2>/dev/null | grep -oP "0.0.0.0:\K$expected_port" || echo "")
+    local actual_port
+    actual_port=$(podman port "$container_name" 2>/dev/null | grep -oP "0.0.0.0:\K$expected_port" || echo "")
 
     if [ "$actual_port" == "$expected_port" ]; then
         return 0
@@ -79,8 +80,8 @@ check_http_response() {
     local url=$1
     local expected_code=${2:-200}
     local timeout=${3:-5}
-
-    local http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$timeout" "$url" 2>/dev/null || echo "000")
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$timeout" "$url" 2>/dev/null || echo "000")
 
     if [ "$http_code" == "$expected_code" ]; then
         return 0
@@ -116,7 +117,7 @@ wait_for_container() {
     local timeout=${2:-30}
     local counter=0
 
-    while [ $counter -lt $timeout ]; do
+    while [ $counter -lt "$timeout" ]; do
         if check_container_running "$container_name"; then
             return 0
         fi
@@ -132,7 +133,7 @@ wait_for_http() {
     local timeout=${2:-30}
     local counter=0
 
-    while [ $counter -lt $timeout ]; do
+    while [ $counter -lt "$timeout" ]; do
         if check_http_response "$url" 200 2; then
             return 0
         fi

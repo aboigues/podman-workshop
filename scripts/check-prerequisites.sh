@@ -6,8 +6,8 @@ echo "==========================="
 ERRORS=0
 
 check_command() {
-    if command -v $1 &> /dev/null; then
-        VERSION=$($1 --version 2>&1 | head -n1)
+    if command -v "$1" &> /dev/null; then
+        VERSION=$("$1" --version 2>&1 | head -n1)
         echo "[OK] $1: $VERSION"
         return 0
     else

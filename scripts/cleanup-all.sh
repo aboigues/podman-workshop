@@ -10,6 +10,7 @@ echo "Suppression de tous les conteneurs..."
 podman rm -a 2>/dev/null || true
 
 echo "Suppression des images de test..."
+# shellcheck disable=SC2046
 podman rmi $(podman images --filter "reference=*-test" -q) 2>/dev/null || true
 
 echo "Suppression des volumes non utilises..."

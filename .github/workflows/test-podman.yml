@@ -1,0 +1,114 @@
+name: Test Podman Workshop
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  prerequisites:
+    name: Check Prerequisites
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Check Prerequisites
+        run: |
+          chmod +x scripts/check-prerequisites.sh
+          bash scripts/check-prerequisites.sh
+
+  test-tp1:
+    name: Test TP1 - Conteneurs Simples
+    runs-on: ubuntu-latest
+    needs: prerequisites
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman curl
+
+      - name: Run TP1 Quick Test
+        run: |
+          cd TP1-conteneurs-simples/exercices
+          chmod +x quick-test.sh
+          bash quick-test.sh
+
+  test-tp2:
+    name: Test TP2 - Dockerfiles
+    runs-on: ubuntu-latest
+    needs: prerequisites
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman curl
+
+      - name: Run TP2 Tests
+        run: |
+          cd TP2-dockerfile
+          chmod +x test-all-examples.sh
+          bash test-all-examples.sh
+
+  test-tp3:
+    name: Test TP3 - Podman Compose
+    runs-on: ubuntu-latest
+    needs: prerequisites
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman and Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman python3-pip curl
+          pip3 install podman-compose
+
+      - name: Run TP3 Tests
+        run: |
+          cd TP3-compose
+          chmod +x test-all-stacks.sh
+          bash test-all-stacks.sh
+
+  test-security-scripts:
+    name: Test TP5A - Security Scripts
+    runs-on: ubuntu-latest
+    needs: prerequisites
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Test Rootless Script
+        run: |
+          cd TP5A-securite/scripts
+          chmod +x test-rootless.sh
+          bash test-rootless.sh
+
+      - name: Test Capabilities Script
+        run: |
+          cd TP5A-securite/scripts
+          chmod +x test-capabilities.sh
+          bash test-capabilities.sh
