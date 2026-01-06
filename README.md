@@ -35,8 +35,9 @@ Chaque exercice contient :
 | [TP4](TP4-systemd/) | Systemd | Avancé | 3h30 | Automatisation, services |
 | [TP5A](TP5A-securite/) | Sécurité | Avancé | 2h30 | Rootless, SELinux, scan |
 | [TP5B](TP5B-aws/) | AWS | Avancé | 3h30 | EC2, Terraform, cloud |
+| [TP6](TP6-projet-complet/) 🎁 | **Projet Complet** | **Expert** | **3h** | **Stack complète bout-en-bout** |
 
-**Total : 18 heures** de formation pratique et approfondie
+**Total : 21 heures** de formation pratique et approfondie
 
 ## 🚀 Quick Start
 
@@ -187,11 +188,23 @@ Déploiement cloud avec Terraform (760 lignes)
 - Gestion des coûts et optimisation
 - Bonnes pratiques AWS
 
-**Durée totale estimée : 18 heures**
+### 🎁 TP6 - Projet Complet (3h) - Expert ⭐
+**TP Bonus : Intégration complète de tous les concepts**
+Stack DevOps complète avec 7 services orchestrés (940+ lignes)
+- **Application réelle** : Frontend React + API Node.js + PostgreSQL + Redis
+- **Infrastructure** : Reverse proxy Nginx avec SSL/TLS
+- **Monitoring** : Prometheus + Grafana avec dashboards
+- **Automatisation** : Services systemd pour auto-start
+- **Sécurité** : Rootless, secrets, healthchecks, scan vulnérabilités
+- **Déploiement** : Scripts automatisés + Terraform AWS (bonus)
+
+**Concepts intégrés :** Tous les TP1 à TP5B dans un projet de bout en bout !
+
+**Durée totale estimée : 21 heures**
 
 *Note : Les durées sont estimées pour une compréhension approfondie incluant la lecture de la documentation,
 la réalisation des exercices, et l'expérimentation personnelle. Pour un survol rapide, comptez environ 60%
-de ces durées.*
+de ces durées (~13h).*
 
 ## Licence
 
