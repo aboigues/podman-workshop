@@ -112,3 +112,25 @@ jobs:
           cd TP5A-securite/scripts
           chmod +x test-capabilities.sh
           bash test-capabilities.sh
+
+  test-tp6:
+    name: Test TP6 - Projet Complet
+    runs-on: ubuntu-latest
+    needs: prerequisites
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman python3-pip curl openssl
+          pip3 install podman-compose
+
+      - name: Run TP6 Full Stack Test
+        run: |
+          cd TP6-projet-complet
+          chmod +x test-tp6.sh
+          bash test-tp6.sh
