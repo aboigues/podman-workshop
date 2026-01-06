@@ -27,14 +27,16 @@ Chaque exercice contient :
 
 ## Sommaire des TPs
 
-| TP | Titre | Niveau | Contenu |
-|----|-------|--------|---------|
-| [TP1](TP1-conteneurs-simples/) | Conteneurs Simples | Debutant | Lancement, logs, gestion |
-| [TP2](TP2-dockerfile/) | Dockerfile & Images | Intermediaire | Images personnalisees |
-| [TP3](TP3-compose/) | Podman Compose | Intermediaire | Multi-services |
-| [TP4](TP4-systemd/) | Systemd | Avance | Automatisation |
-| [TP5A](TP5A-securite/) | Securite | Avance | Rootless, SELinux, scan |
-| [TP5B](TP5B-aws/) | AWS | Avance | EC2, ECS, Terraform |
+| TP | Titre | Niveau | Durée | Contenu |
+|----|-------|--------|-------|---------|
+| [TP1](TP1-conteneurs-simples/) | Conteneurs Simples | Débutant | 2h30 | Lancement, logs, gestion |
+| [TP2](TP2-dockerfile/) | Dockerfile & Images | Intermédiaire | 2h30 | Images personnalisées |
+| [TP3](TP3-compose/) | Podman Compose | Intermédiaire | 3h30 | Multi-services, orchestration |
+| [TP4](TP4-systemd/) | Systemd | Avancé | 3h30 | Automatisation, services |
+| [TP5A](TP5A-securite/) | Sécurité | Avancé | 2h30 | Rootless, SELinux, scan |
+| [TP5B](TP5B-aws/) | AWS | Avancé | 3h30 | EC2, Terraform, cloud |
+
+**Total : 18 heures** de formation pratique et approfondie
 
 ## 🚀 Quick Start
 
@@ -141,25 +143,55 @@ podman-workshop/
 
 ## 🎯 Parcours d'apprentissage recommandé
 
-1. **TP1 - Conteneurs Simples** (2h) - Débutant
-   - Exercice 1 : Lancer votre premier conteneur
-   - Exercice 2 : Consulter les logs
-   - Exercice 3 : Gérer le cycle de vie
-   - Exercice 4 : Mode interactif
+### TP1 - Conteneurs Simples (2h30) - Débutant
+Documentation complète avec explications ligne par ligne de chaque commande
+- Exercice 1 : Lancer votre premier conteneur
+- Exercice 2 : Consulter les logs
+- Exercice 3 : Gérer le cycle de vie
+- Exercice 4 : Mode interactif
 
-2. **TP2 - Dockerfile** (3h) - Intermédiaire
-   - Exercice 1 : Application Python Flask
-   - Exercice 2 : Multi-stage builds (Go)
-   - Exercice 3 : Nginx personnalisé
+### TP2 - Dockerfile (2h30) - Intermédiaire
+3 exemples fonctionnels avec Dockerfile commentés
+- Exemple 1 : Application Python Flask
+- Exemple 2 : Multi-stage builds (Go)
+- Exemple 3 : Nginx personnalisé
 
-3. **TP3 - Podman Compose** (2h) - Intermédiaire
-   - Exercice 1 : Stack Web + Base de données
+### TP3 - Podman Compose (3h30) - Intermédiaire
+Documentation exhaustive (1000+ lignes) avec 6 exemples avancés et 4 exercices
+- Structure complète d'un docker-compose.yml expliquée
+- 6 exemples avancés (env files, build args, scaling, profils, healthchecks, ressources)
+- 4 exercices pratiques guidés
+- Guide de résolution de 8 problèmes courants
 
-4. **TP4 - Systemd** (2h) - Avancé
-5. **TP5A - Sécurité** (2h) - Avancé
-6. **TP5B - AWS** (3h) - Avancé
+### TP4 - Systemd (3h30) - Avancé
+Documentation complète (1100+ lignes) sur l'intégration Podman + systemd
+- Structure des unit files systemd
+- Mode user vs mode system
+- 6 exemples avancés (healthcheck, dépendances, timers, socket activation)
+- Gestion des dépendances entre services
 
-**Durée totale estimée : 14 heures**
+### TP5A - Sécurité (2h30) - Avancé
+Guide complet de sécurité (935 lignes)
+- Mode rootless et user namespaces
+- Capabilities Linux
+- SELinux et AppArmor
+- Scan de vulnérabilités (Trivy, Clair, Grype)
+- Gestion des secrets
+- Bonnes pratiques de sécurité
+
+### TP5B - AWS (3h30) - Avancé
+Déploiement cloud avec Terraform (760 lignes)
+- Configuration AWS CLI
+- Déploiement manuel sur EC2
+- Infrastructure as Code avec Terraform
+- Gestion des coûts et optimisation
+- Bonnes pratiques AWS
+
+**Durée totale estimée : 18 heures**
+
+*Note : Les durées sont estimées pour une compréhension approfondie incluant la lecture de la documentation,
+la réalisation des exercices, et l'expérimentation personnelle. Pour un survol rapide, comptez environ 60%
+de ces durées.*
 
 ## Licence
 
