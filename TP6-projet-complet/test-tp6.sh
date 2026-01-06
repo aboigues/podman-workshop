@@ -95,7 +95,7 @@ info "Vérification des conteneurs..."
 EXPECTED_CONTAINERS=(
     "taskplatform-db"
     "taskplatform-redis"
-    "taskplatform-backend"
+    "taskplatform-api"
     "taskplatform-frontend"
     "taskplatform-nginx"
     "taskplatform-prometheus"
@@ -134,7 +134,7 @@ sleep 10
 
 if curl -sf http://localhost:4000/api/health &>/dev/null; then
     info "✓ Backend API répond"
-elif podman logs taskplatform-backend | grep -q "Server listening"; then
+elif podman logs taskplatform-api | grep -q "Server listening"; then
     info "✓ Backend API a démarré (logs confirment)"
 else
     warning "Backend API ne répond pas encore (peut nécessiter plus de temps)"
@@ -176,7 +176,7 @@ if [ $FAILED -gt 0 ]; then
     podman logs taskplatform-db 2>&1 | tail -20
     echo ""
     echo "=== Logs Backend ==="
-    podman logs taskplatform-backend 2>&1 | tail -20
+    podman logs taskplatform-api 2>&1 | tail -20
     echo ""
     echo "=== Logs Frontend ==="
     podman logs taskplatform-frontend 2>&1 | tail -20
