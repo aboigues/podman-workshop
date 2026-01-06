@@ -2,13 +2,24 @@
 
 Formation complete et pratique sur Podman : de la conteneurisation de base au deploiement sur AWS.
 
-## Tous les fichiers sont prets a l'emploi
+## 🎓 Approche pédagogique : Learning by Doing
 
-Chaque TP contient :
-- Code source complet et fonctionnel
-- Scripts de test automatises
-- Solutions detaillees
-- Documentation claire
+**Nouveau !** Ce workshop adopte une approche d'apprentissage progressif où vous **écrivez vos propres commandes** au lieu de copier-coller des solutions.
+
+### Pourquoi cette approche ?
+- ✍️ **Apprentissage actif** : Écrire les commandes vous-même renforce la compréhension
+- 🎯 **Validation automatique** : Chaque exercice vérifie que vos commandes sont correctes
+- 💡 **Indices progressifs** : Système d'aide à 3 niveaux pour vous guider sans donner la réponse
+- ✅ **Feedback immédiat** : Validez vos exercices et voyez votre progression
+
+### Structure des exercices
+
+Chaque exercice contient :
+- 📋 **README.md** : Énoncé détaillé avec objectifs et contexte
+- ✏️ **Fichiers à compléter** : Commandes avec placeholders à remplir
+- ✅ **Script de validation** : Vérifie automatiquement votre travail
+- 💡 **Indices progressifs** : Aide à 3 niveaux si vous êtes bloqué
+- 🔐 **Solutions complètes** : À consulter en dernier recours
 
 ## Sommaire des TPs
 
@@ -21,18 +32,42 @@ Chaque TP contient :
 | [TP5A](TP5A-securite/) | Securite | Avance | Rootless, SELinux, scan |
 | [TP5B](TP5B-aws/) | AWS | Avance | EC2, ECS, Terraform |
 
-## Quick Start
+## 🚀 Quick Start
 
+### 1. Lire le guide d'apprentissage
 ```bash
-# 1. Verifier les prerequis
+cat GUIDE-APPRENTISSAGE.md
+```
+
+### 2. Vérifier les prérequis
+```bash
 ./scripts/check-prerequisites.sh
+```
 
-# 2. Tester que tout fonctionne
-./scripts/test-all.sh
+### 3. Commencer votre premier exercice
+```bash
+cd TP1-conteneurs-simples/exercices/exercice-01
 
-# 3. Commencer TP1
-cd TP1-conteneurs-simples
-./exercices/demo-complete.sh
+# Lire l'énoncé
+cat README.md
+
+# Compléter les commandes
+nano commandes.sh
+
+# Exécuter vos commandes
+./commandes.sh
+
+# Valider votre travail
+./validation.sh
+```
+
+### 4. Si vous êtes bloqué
+```bash
+# Consulter les indices progressifs
+cat indices.md
+
+# En dernier recours : voir la solution
+cat ../../solutions/exercice-01-solution.sh
 ```
 
 ## Prerequis
@@ -52,27 +87,75 @@ cd TP1-conteneurs-simples
 - AWS CLI v2
 - Terraform >= 1.0 (optionnel)
 
-## Structure du projet
+## 📁 Structure du projet
 
 ```
 podman-workshop/
-├── TP1-conteneurs-simples/
-├── TP2-dockerfile/
-├── TP3-compose/
-├── TP4-systemd/
-├── TP5A-securite/
-├── TP5B-aws/
-└── scripts/
+├── GUIDE-APPRENTISSAGE.md           # 📚 Guide complet de la méthode d'apprentissage
+├── lib/                             # 🛠️ Utilitaires de validation
+│   └── validation-utils.sh
+├── TP1-conteneurs-simples/          # Niveau Débutant
+│   └── exercices/
+│       ├── exercice-01/             # Lancer un conteneur
+│       │   ├── README.md            # 📋 Énoncé
+│       │   ├── commandes.sh         # ✏️ À compléter
+│       │   ├── validation.sh        # ✅ Validation
+│       │   └── indices.md           # 💡 Aide progressive
+│       ├── exercice-02/             # Consulter les logs
+│       ├── exercice-03/             # Cycle de vie
+│       └── exercice-04/             # Mode interactif
+├── TP2-dockerfile/                  # Niveau Intermédiaire
+│   └── exercices/
+│       ├── exercice-01-python/      # Dockerfile Python Flask
+│       ├── exercice-02-go-multistage/ # Multi-stage builds
+│       └── exercice-03-nginx/       # Nginx personnalisé
+├── TP3-compose/                     # Niveau Intermédiaire
+│   └── exercices/
+│       └── exercice-01-web-db/      # Stack Web + DB
+├── TP4-systemd/                     # Niveau Avancé
+├── TP5A-securite/                   # Niveau Avancé
+├── TP5B-aws/                        # Niveau Avancé
+├── ressources/
+│   └── cheatsheet.md                # Référence rapide
+└── scripts/                         # Scripts utilitaires
+    ├── check-prerequisites.sh
+    ├── test-all.sh
+    └── cleanup-all.sh
 ```
 
-## Scripts utilitaires
+## 🛠️ Scripts utilitaires
 
 ```bash
-./scripts/check-prerequisites.sh    # Verifier prerequis
-./scripts/test-all.sh               # Tester tous les TPs
-./scripts/cleanup-all.sh            # Nettoyer
-./scripts/test-tp.sh TP1            # Tester un TP specifique
+./scripts/check-prerequisites.sh    # Vérifier les prérequis
+./scripts/cleanup-all.sh            # Nettoyer tous les conteneurs/images
+
+# Dans chaque exercice
+./commandes.sh                      # Exécuter vos commandes
+./validation.sh                     # Valider votre travail
+./validation.sh --cleanup           # Nettoyer les ressources de l'exercice
 ```
+
+## 🎯 Parcours d'apprentissage recommandé
+
+1. **TP1 - Conteneurs Simples** (2h) - Débutant
+   - Exercice 1 : Lancer votre premier conteneur
+   - Exercice 2 : Consulter les logs
+   - Exercice 3 : Gérer le cycle de vie
+   - Exercice 4 : Mode interactif
+
+2. **TP2 - Dockerfile** (3h) - Intermédiaire
+   - Exercice 1 : Application Python Flask
+   - Exercice 2 : Multi-stage builds (Go)
+   - Exercice 3 : Nginx personnalisé
+
+3. **TP3 - Podman Compose** (2h) - Intermédiaire
+   - Exercice 1 : Stack Web + Base de données
+
+4. **TP4 - Systemd** (2h) - Avancé
+5. **TP5A - Sécurité** (2h) - Avancé
+6. **TP5B - AWS** (3h) - Avancé
+
+**Durée totale estimée : 14 heures**
 
 ## Licence
 
