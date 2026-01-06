@@ -1,0 +1,942 @@
+# TP6 - Projet Complet : Plateforme DevOps avec Monitoring
+
+## 🎯 Objectifs
+
+Ce TP bonus intègre **tous les concepts** des TP1 à TP5B dans un projet réel de bout en bout :
+- Créer une stack complète multi-services
+- Intégrer monitoring et observabilité
+- Automatiser avec systemd
+- Sécuriser l'ensemble
+- Déployer sur le cloud (bonus)
+
+**Durée estimée : 3 heures**
+
+## 📋 Contexte du projet
+
+Vous allez créer une **plateforme DevOps complète** comprenant :
+- Une application web de gestion de tâches (Node.js + React)
+- Une API REST (Express.js)
+- Une base de données PostgreSQL
+- Un cache Redis
+- Un reverse proxy Nginx
+- Monitoring avec Prometheus + Grafana
+- Gestion centralisée des logs
+
+Cette stack représente une architecture micro-services réaliste en production.
+
+## 🏗️ Architecture de la solution
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │         Internet / Users                 │
+                    └──────────────────┬──────────────────────┘
+                                       │
+                              Port 80/443 (HTTPS)
+                                       │
+                    ┌──────────────────▼──────────────────────┐
+                    │        Nginx (Reverse Proxy)             │
+                    │    - SSL Termination                     │
+                    │    - Load Balancing                      │
+                    │    - Static Files Cache                  │
+                    └──────┬────────────────────┬──────────────┘
+                           │                    │
+                  Port 3000│                    │Port 9090/3001
+                           │                    │
+        ┌──────────────────▼──────┐    ┌──────▼───────────────┐
+        │   Frontend (React)       │    │  Monitoring Stack    │
+        │   - SPA Application      │    │  - Prometheus        │
+        │   - Static Build         │    │  - Grafana           │
+        └──────────────────────────┘    │  - Node Exporter     │
+                                        └──────────────────────┘
+                           │
+                  Port 4000│ (API)
+                           │
+        ┌──────────────────▼──────────────────────┐
+        │       API Backend (Express.js)           │
+        │   - REST API                             │
+        │   - Authentication JWT                   │
+        │   - Business Logic                       │
+        └──────┬────────────────────┬──────────────┘
+               │                    │
+      Port 5432│                    │Port 6379
+               │                    │
+    ┌──────────▼─────────┐   ┌─────▼──────────┐
+    │   PostgreSQL       │   │     Redis       │
+    │   - Primary DB     │   │   - Cache       │
+    │   - Persistent     │   │   - Sessions    │
+    └────────────────────┘   └─────────────────┘
+```
+
+### Volumes persistants
+- `postgres_data` : Données PostgreSQL
+- `grafana_data` : Configuration Grafana
+- `prometheus_data` : Métriques Prometheus
+
+### Réseaux
+- `frontend-network` : Frontend ↔ Nginx
+- `backend-network` : API ↔ DB ↔ Redis
+- `monitoring-network` : Tous les services → Prometheus
+
+## 🎓 Concepts intégrés
+
+| Concept | TP d'origine | Application dans ce projet |
+|---------|-------------|---------------------------|
+| **Conteneurs simples** | TP1 | Tous les services conteneurisés |
+| **Dockerfiles customs** | TP2 | Multi-stage pour API et Frontend |
+| **Podman Compose** | TP3 | Orchestration complète 7 services |
+| **Systemd** | TP4 | Auto-start au boot système |
+| **Sécurité** | TP5A | Rootless, secrets, healthchecks |
+| **Déploiement cloud** | TP5B | Terraform AWS (bonus) |
+
+## 📁 Structure du projet
+
+```
+TP6-projet-complet/
+├── README.md                      # Ce fichier
+├── docker-compose.yml             # Orchestration complète
+├── .env.example                   # Variables d'environnement
+├── app/
+│   ├── frontend/
+│   │   ├── Dockerfile             # React build multi-stage
+│   │   ├── package.json
+│   │   └── src/
+│   └── backend/
+│       ├── Dockerfile             # Node.js API multi-stage
+│       ├── package.json
+│       ├── src/
+│       └── tests/
+├── nginx/
+│   ├── Dockerfile
+│   ├── nginx.conf                 # Configuration reverse proxy
+│   └── ssl/                       # Certificats SSL
+├── monitoring/
+│   ├── prometheus/
+│   │   └── prometheus.yml         # Configuration Prometheus
+│   └── grafana/
+│       └── dashboards/            # Dashboards JSON
+├── scripts/
+│   ├── setup.sh                   # Setup initial
+│   ├── deploy.sh                  # Déploiement
+│   ├── backup.sh                  # Sauvegarde DB
+│   ├── restore.sh                 # Restauration DB
+│   └── generate-systemd.sh        # Génération services systemd
+└── terraform/                     # Déploiement AWS (bonus)
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+```
+
+## 🚀 Démarrage rapide
+
+```bash
+# 1. Cloner et préparer
+cd TP6-projet-complet
+cp .env.example .env
+
+# 2. Configurer les variables
+nano .env
+
+# 3. Setup initial (build + secrets)
+./scripts/setup.sh
+
+# 4. Lancer la stack complète
+podman-compose up -d
+
+# 5. Vérifier les services
+podman-compose ps
+
+# 6. Accéder aux interfaces
+# - Application: http://localhost
+# - API: http://localhost/api
+# - Grafana: http://localhost:3001 (admin/admin)
+# - Prometheus: http://localhost:9090
+```
+
+---
+
+## 📚 Exercice 1 : Préparation des Dockerfiles (45 min)
+
+### Objectif
+Créer des Dockerfiles optimisés pour chaque service avec multi-stage builds.
+
+### 1.1 - Backend API (Node.js)
+
+Créez `app/backend/Dockerfile` :
+
+**Concepts appliqués :**
+- Multi-stage build (TP2)
+- Utilisateur non-root (TP5A)
+- Healthcheck (TP3)
+- Layer caching optimal (TP2)
+
+**Caractéristiques :**
+- Stage 1 : Build avec toutes les dépendances
+- Stage 2 : Runtime avec seulement les dépendances de production
+- Taille finale < 150MB
+- Utilisateur `node` (non-root)
+- Healthcheck sur `/api/health`
+
+### 1.2 - Frontend React
+
+Créez `app/frontend/Dockerfile` :
+
+**Concepts appliqués :**
+- Multi-stage build (TP2)
+- Nginx pour servir les statics (TP2)
+- Build optimisé (minification, compression)
+
+**Caractéristiques :**
+- Stage 1 : Build React (npm run build)
+- Stage 2 : Nginx Alpine pour servir
+- Taille finale < 50MB
+
+### 1.3 - Reverse Proxy Nginx
+
+Créez `nginx/Dockerfile` :
+
+**Concepts appliqués :**
+- Configuration custom (TP2)
+- Gestion SSL (TP5A)
+- Optimisation performance
+
+**Caractéristiques :**
+- Base Alpine
+- Configuration custom avec upstream
+- Gzip compression
+- SSL/TLS ready
+
+### 📝 Checklist Exercice 1
+
+- [ ] Dockerfile backend avec multi-stage
+- [ ] Dockerfile frontend avec multi-stage
+- [ ] Dockerfile nginx custom
+- [ ] Tous les Dockerfiles utilisent Alpine
+- [ ] Utilisateurs non-root configurés
+- [ ] Healthchecks définis
+- [ ] Builds testés individuellement
+
+**Validation :**
+```bash
+# Tester chaque build
+cd app/backend && podman build -t task-api .
+cd app/frontend && podman build -t task-frontend .
+cd nginx && podman build -t task-nginx .
+
+# Vérifier les tailles
+podman images | grep task-
+```
+
+---
+
+## 📚 Exercice 2 : Orchestration avec Compose (60 min)
+
+### Objectif
+Créer un `docker-compose.yml` complet orchestrant les 7 services avec leurs dépendances.
+
+### 2.1 - Services de base
+
+**Services à configurer :**
+
+1. **PostgreSQL**
+   - Image : `postgres:15-alpine`
+   - Variables : `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+   - Volume : `postgres_data:/var/lib/postgresql/data`
+   - Healthcheck : `pg_isready`
+   - Network : `backend-network`
+
+2. **Redis**
+   - Image : `redis:7-alpine`
+   - Configuration : Persistence AOF activée
+   - Volume : `redis_data:/data`
+   - Healthcheck : `redis-cli ping`
+   - Network : `backend-network`
+
+3. **Backend API**
+   - Build : `./app/backend`
+   - Dépend de : PostgreSQL, Redis
+   - Environment : DB credentials, Redis URL
+   - Ports : `4000:4000`
+   - Networks : `backend-network`, `monitoring-network`
+
+4. **Frontend**
+   - Build : `./app/frontend`
+   - Environment : `API_URL=http://backend:4000`
+   - Ports : `3000:80`
+   - Networks : `frontend-network`
+
+5. **Nginx**
+   - Build : `./nginx`
+   - Dépend de : Frontend, Backend
+   - Ports : `80:80`, `443:443`
+   - Networks : `frontend-network`, `backend-network`
+
+### 2.2 - Stack de monitoring
+
+6. **Prometheus**
+   - Image : `prom/prometheus:latest`
+   - Config : `./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml`
+   - Volume : `prometheus_data:/prometheus`
+   - Ports : `9090:9090`
+   - Network : `monitoring-network`
+
+7. **Grafana**
+   - Image : `grafana/grafana:latest`
+   - Environment : `GF_SECURITY_ADMIN_PASSWORD`
+   - Volume : `grafana_data:/var/lib/grafana`
+   - Ports : `3001:3000`
+   - Network : `monitoring-network`
+
+### 2.3 - Configuration avancée
+
+**Dépendances avec conditions :**
+```yaml
+depends_on:
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+```
+
+**Restart policies :**
+```yaml
+restart: unless-stopped
+```
+
+**Resource limits :**
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '0.5'
+      memory: 512M
+```
+
+### 📝 Checklist Exercice 2
+
+- [ ] 7 services configurés
+- [ ] 3 networks définis
+- [ ] 4 volumes persistants
+- [ ] Healthchecks sur tous les services
+- [ ] Dépendances configurées
+- [ ] Variables d'environnement via .env
+- [ ] Resource limits définis
+- [ ] Restart policies configurés
+
+**Validation :**
+```bash
+# Valider la syntaxe
+podman-compose config
+
+# Lancer la stack
+podman-compose up -d
+
+# Vérifier tous les services
+podman-compose ps
+podman-compose logs -f
+
+# Tester les healthchecks
+for service in postgres redis backend; do
+  podman healthcheck run $service
+done
+```
+
+---
+
+## 📚 Exercice 3 : Automatisation Systemd (30 min)
+
+### Objectif
+Générer et installer des services systemd pour démarrage automatique au boot.
+
+### 3.1 - Génération des services
+
+**Script `scripts/generate-systemd.sh` :**
+
+Créer un script qui :
+1. Arrête proprement la stack si elle tourne
+2. Génère les services systemd avec `podman generate systemd`
+3. Installe les services en mode user
+4. Active les services au démarrage
+
+**Concepts appliqués :**
+- `podman generate systemd --new --files` (TP4)
+- Services user systemd (TP4)
+- Dépendances entre services (TP4)
+
+### 3.2 - Configuration des services
+
+**Fichiers à générer :**
+```
+~/.config/systemd/user/
+├── pod-taskplatform.service          # Pod principal
+├── container-postgres.service
+├── container-redis.service
+├── container-backend.service
+├── container-frontend.service
+├── container-nginx.service
+├── container-prometheus.service
+└── container-grafana.service
+```
+
+**Ordre de démarrage souhaité :**
+1. PostgreSQL, Redis (parallèle)
+2. Backend (attend DB)
+3. Frontend (parallèle avec Backend)
+4. Nginx (attend Frontend + Backend)
+5. Prometheus, Grafana (parallèle)
+
+### 3.3 - Gestion du service
+
+```bash
+# Recharger systemd
+systemctl --user daemon-reload
+
+# Activer au démarrage
+systemctl --user enable pod-taskplatform.service
+
+# Démarrer
+systemctl --user start pod-taskplatform.service
+
+# Vérifier le statut
+systemctl --user status pod-taskplatform.service
+
+# Logs
+journalctl --user -u pod-taskplatform.service -f
+```
+
+### 📝 Checklist Exercice 3
+
+- [ ] Script generate-systemd.sh créé
+- [ ] Services systemd générés
+- [ ] Services installés en mode user
+- [ ] Dépendances configurées
+- [ ] Services activés au boot
+- [ ] Test de redémarrage effectué
+
+**Validation :**
+```bash
+# Lister les services
+systemctl --user list-units | grep container-
+
+# Test de redémarrage complet
+systemctl --user restart pod-taskplatform.service
+
+# Vérifier que tous démarrent
+sleep 30
+systemctl --user status pod-taskplatform.service
+podman ps
+```
+
+---
+
+## 📚 Exercice 4 : Sécurisation (45 min)
+
+### Objectif
+Appliquer toutes les bonnes pratiques de sécurité sur la stack.
+
+### 4.1 - Mode Rootless
+
+**Vérifications :**
+```bash
+# Vérifier mode rootless
+podman system info | grep -i rootless
+
+# Vérifier user namespaces
+podman unshare cat /proc/self/uid_map
+```
+
+**Actions :**
+- Tous les conteneurs en rootless
+- Utilisateurs non-root dans les Dockerfiles
+- Pas de `--privileged`
+
+### 4.2 - Gestion des secrets
+
+**Créer des secrets Podman :**
+```bash
+# Créer les secrets
+echo "mydbpassword" | podman secret create db_password -
+echo "myjwttoken" | podman secret create jwt_secret -
+echo "grafana_admin_password" | podman secret create grafana_password -
+```
+
+**Utiliser dans compose :**
+```yaml
+services:
+  postgres:
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+
+secrets:
+  db_password:
+    external: true
+  jwt_secret:
+    external: true
+```
+
+### 4.3 - Capabilities et ressources
+
+**Limiter les capabilities :**
+```yaml
+services:
+  backend:
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # Si besoin port < 1024
+```
+
+**Limiter les ressources :**
+```yaml
+services:
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+```
+
+### 4.4 - Scan de vulnérabilités
+
+```bash
+# Scanner toutes les images
+for image in task-api task-frontend task-nginx postgres:15-alpine redis:7-alpine; do
+  echo "Scanning $image..."
+  trivy image $image --severity HIGH,CRITICAL
+done
+```
+
+### 4.5 - Configuration SSL/TLS
+
+**Générer certificats auto-signés (dev) :**
+```bash
+./scripts/generate-ssl.sh
+```
+
+**Configurer Nginx pour SSL :**
+```nginx
+server {
+    listen 443 ssl http2;
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+}
+```
+
+### 📝 Checklist Exercice 4
+
+- [ ] Mode rootless vérifié
+- [ ] Secrets Podman créés et utilisés
+- [ ] Capabilities limitées
+- [ ] Resource limits définis
+- [ ] Images scannées (Trivy)
+- [ ] SSL/TLS configuré
+- [ ] Pas de credentials en clair
+- [ ] Healthchecks sur tous les services
+
+**Validation :**
+```bash
+# Vérifier rootless
+podman system info | grep -A5 rootless
+
+# Vérifier secrets
+podman secret ls
+
+# Vérifier capabilities
+podman inspect backend | jq '.[0].HostConfig.CapDrop'
+
+# Test SSL
+curl -k https://localhost
+```
+
+---
+
+## 🎁 Exercice Bonus : Déploiement AWS (optionnel, 30 min)
+
+### Objectif
+Déployer la stack complète sur AWS avec Terraform.
+
+### Architecture AWS
+
+```
+VPC (10.0.0.0/16)
+├── Public Subnet (10.0.1.0/24)
+│   └── EC2 Instance (t3.medium)
+│       ├── Podman installé
+│       ├── Stack complète
+│       └── Security Group (80, 443, 22)
+├── RDS PostgreSQL (optionnel)
+└── ElastiCache Redis (optionnel)
+```
+
+### Terraform Configuration
+
+**Fichier `terraform/main.tf` :**
+
+```hcl
+resource "aws_instance" "podman_host" {
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t3.medium"
+
+  user_data = file("${path.module}/user-data.sh")
+
+  tags = {
+    Name = "taskplatform-podman"
+  }
+}
+```
+
+**User data - installation automatique :**
+```bash
+#!/bin/bash
+# Installation Podman
+dnf install -y podman podman-compose git
+
+# Clone du projet
+git clone <repo> /opt/taskplatform
+cd /opt/taskplatform/TP6-projet-complet
+
+# Setup et démarrage
+./scripts/deploy.sh
+```
+
+### Déploiement
+
+```bash
+cd terraform
+
+# Initialiser
+terraform init
+
+# Planifier
+terraform plan
+
+# Déployer
+terraform apply -auto-approve
+
+# Récupérer l'IP publique
+terraform output public_ip
+
+# Se connecter
+ssh ec2-user@$(terraform output -raw public_ip)
+```
+
+### 📝 Checklist Bonus
+
+- [ ] Terraform configuré
+- [ ] VPC et subnets créés
+- [ ] Security Group configuré
+- [ ] Instance EC2 lancée
+- [ ] Podman installé automatiquement
+- [ ] Stack déployée automatiquement
+- [ ] Application accessible publiquement
+
+---
+
+## ✅ Validation finale du projet
+
+### Checklist complète
+
+#### Infrastructure
+- [ ] 7 services démarrent correctement
+- [ ] Tous les healthchecks passent
+- [ ] Volumes persistants fonctionnent
+- [ ] Networks isolent correctement
+
+#### Application
+- [ ] Frontend accessible sur port 80/443
+- [ ] API répond sur /api/*
+- [ ] Base de données connectée
+- [ ] Cache Redis fonctionne
+- [ ] Sessions utilisateur persistantes
+
+#### Monitoring
+- [ ] Prometheus scrape toutes les métriques
+- [ ] Grafana affiche les dashboards
+- [ ] Alertes configurées
+- [ ] Logs centralisés
+
+#### Sécurité
+- [ ] Mode rootless actif
+- [ ] Secrets utilisés (pas de mots de passe en clair)
+- [ ] SSL/TLS configuré
+- [ ] Capabilities limitées
+- [ ] Aucune vulnérabilité HIGH/CRITICAL
+
+#### Automatisation
+- [ ] Services systemd installés
+- [ ] Auto-start au boot fonctionne
+- [ ] Scripts de backup/restore testés
+- [ ] Documentation à jour
+
+### Tests fonctionnels
+
+```bash
+# 1. Test complet de la stack
+./scripts/test-complete.sh
+
+# 2. Test des endpoints
+curl http://localhost/api/health
+curl http://localhost/api/tasks
+curl http://localhost
+
+# 3. Test monitoring
+curl http://localhost:9090/api/v1/targets
+curl http://localhost:3001/api/health
+
+# 4. Test persistence
+# Créer des données
+curl -X POST http://localhost/api/tasks -d '{"title":"Test"}'
+
+# Redémarrer
+podman-compose restart
+
+# Vérifier données toujours présentes
+curl http://localhost/api/tasks
+
+# 5. Test backup/restore
+./scripts/backup.sh
+./scripts/restore.sh backup-2024-01-06.sql
+```
+
+### Métriques de succès
+
+- ✅ **Temps de démarrage** : < 2 minutes
+- ✅ **Disponibilité** : 100% après démarrage
+- ✅ **Réponse API** : < 200ms
+- ✅ **Utilisation mémoire** : < 4GB total
+- ✅ **Utilisation CPU** : < 50% en idle
+
+---
+
+## 📊 Métriques et Monitoring
+
+### Dashboards Grafana
+
+**Dashboard 1 : Vue d'ensemble**
+- Nombre de conteneurs actifs
+- Utilisation CPU/Mémoire par service
+- Trafic réseau
+- Uptime
+
+**Dashboard 2 : Application**
+- Requêtes API par seconde
+- Temps de réponse moyen
+- Taux d'erreur 5xx
+- Connexions base de données
+
+**Dashboard 3 : Infrastructure**
+- Utilisation disque
+- I/O réseau
+- Métriques PostgreSQL
+- Métriques Redis
+
+### Alertes Prometheus
+
+```yaml
+groups:
+- name: services
+  rules:
+  - alert: ServiceDown
+    expr: up == 0
+    for: 1m
+    annotations:
+      summary: "Service {{ $labels.instance }} is down"
+
+  - alert: HighMemoryUsage
+    expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+    for: 5m
+```
+
+---
+
+## 🛠️ Scripts utilitaires
+
+### setup.sh
+```bash
+#!/bin/bash
+# Setup initial complet
+# - Génère secrets
+# - Build images
+# - Initialise DB
+# - Configure monitoring
+```
+
+### deploy.sh
+```bash
+#!/bin/bash
+# Déploiement complet
+# - Pull images
+# - Start stack
+# - Attends healthchecks
+# - Affiche status
+```
+
+### backup.sh
+```bash
+#!/bin/bash
+# Sauvegarde PostgreSQL
+podman exec postgres pg_dump -U taskuser taskdb > backup-$(date +%Y%m%d).sql
+```
+
+### restore.sh
+```bash
+#!/bin/bash
+# Restauration PostgreSQL
+podman exec -i postgres psql -U taskuser taskdb < $1
+```
+
+### test-complete.sh
+```bash
+#!/bin/bash
+# Tests end-to-end
+# - Vérifie tous les services
+# - Test les endpoints
+# - Vérifie monitoring
+```
+
+---
+
+## 📚 Documentation et ressources
+
+### Architecture decisions
+
+**Pourquoi PostgreSQL ?**
+- Base relationnelle robuste
+- Support transactions ACID
+- Excellent pour données structurées
+
+**Pourquoi Redis ?**
+- Cache ultra-rapide
+- Sessions distribuées
+- Pub/Sub pour temps réel
+
+**Pourquoi Nginx ?**
+- Reverse proxy performant
+- SSL termination
+- Load balancing
+
+**Pourquoi Prometheus + Grafana ?**
+- Standard industrie monitoring
+- Métriques détaillées
+- Dashboards personnalisables
+
+### Bonnes pratiques appliquées
+
+1. **12-Factor App**
+   - Configuration via environnement
+   - Logs en stdout
+   - Stateless services
+
+2. **Sécurité**
+   - Principe du moindre privilège
+   - Secrets managés
+   - Scan régulier vulnérabilités
+
+3. **Observabilité**
+   - Logging centralisé
+   - Métriques exposées
+   - Healthchecks complets
+
+4. **Résilience**
+   - Restart automatique
+   - Healthchecks avec retry
+   - Dépendances explicites
+
+---
+
+## 🎓 Compétences acquises
+
+À la fin de ce TP, vous maîtrisez :
+
+### Technique
+- ✅ Architecture micro-services complète
+- ✅ Orchestration multi-conteneurs complexe
+- ✅ Multi-stage builds optimisés
+- ✅ Networking avancé Podman
+- ✅ Gestion des secrets
+- ✅ Monitoring et observabilité
+- ✅ Automatisation systemd
+- ✅ Déploiement cloud
+
+### Opérationnel
+- ✅ Backup et restore
+- ✅ Debugging stack complexe
+- ✅ Gestion des logs
+- ✅ Alerting et monitoring
+- ✅ Scaling horizontal
+- ✅ Blue/Green deployment
+
+### Sécurité
+- ✅ Mode rootless complet
+- ✅ Gestion secrets
+- ✅ SSL/TLS
+- ✅ Scan vulnérabilités
+- ✅ Isolation réseau
+- ✅ Resource quotas
+
+---
+
+## 🚀 Pour aller plus loin
+
+### Améliorations possibles
+
+1. **High Availability**
+   - PostgreSQL réplication
+   - Redis cluster
+   - Multiple instances API
+
+2. **CI/CD**
+   - GitHub Actions
+   - Tests automatisés
+   - Déploiement automatique
+
+3. **Monitoring avancé**
+   - Distributed tracing (Jaeger)
+   - Log aggregation (ELK)
+   - APM (Application Performance Monitoring)
+
+4. **Scaling**
+   - Kubernetes migration
+   - Service mesh (Istio)
+   - Load testing (k6)
+
+### Ressources
+
+- [12-Factor App Methodology](https://12factor.net/)
+- [Prometheus Best Practices](https://prometheus.io/docs/practices/)
+- [OWASP Container Security](https://owasp.org/www-project-container-security/)
+- [Podman Documentation](https://docs.podman.io/)
+
+---
+
+## 🎉 Félicitations !
+
+Vous avez complété le TP Bonus le plus avancé du workshop !
+
+Vous êtes maintenant capable de :
+- Concevoir et déployer des architectures micro-services
+- Orchestrer des stacks complexes avec Podman
+- Monitorer et maintenir des applications en production
+- Sécuriser vos déploiements
+- Automatiser vos workflows DevOps
+
+**Prochaines étapes :**
+- Déployer votre propre projet avec cette stack
+- Contribuer à des projets open-source
+- Approfondir Kubernetes pour le scaling
+- Explorer les service meshes
+
+**Partagez vos réalisations !** 🎊
+
+---
+
+**Durée réelle : 3h** (sans le bonus AWS)
+**Niveau : Expert** ⭐⭐⭐⭐⭐
+
+[← Retour au sommaire](../README.md)
