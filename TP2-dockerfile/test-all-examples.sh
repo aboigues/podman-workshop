@@ -6,21 +6,27 @@ echo "=============================="
 FAILED=0
 
 echo "Test Python App..."
-cd python-app && ./test.sh
-if [ $? -ne 0 ]; then ((FAILED++)); fi
-cd ..
+cd python-app || exit 1
+if ! ./test.sh; then
+    ((FAILED++))
+fi
+cd .. || exit 1
 
 echo ""
 echo "Test Go App..."
-cd go-app && ./test.sh
-if [ $? -ne 0 ]; then ((FAILED++)); fi
-cd ..
+cd go-app || exit 1
+if ! ./test.sh; then
+    ((FAILED++))
+fi
+cd .. || exit 1
 
 echo ""
 echo "Test Nginx Custom..."
-cd nginx-custom && ./test.sh
-if [ $? -ne 0 ]; then ((FAILED++)); fi
-cd ..
+cd nginx-custom || exit 1
+if ! ./test.sh; then
+    ((FAILED++))
+fi
+cd .. || exit 1
 
 echo ""
 echo "=============================="
