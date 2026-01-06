@@ -1,0 +1,24 @@
+# Dockerfile pour application Flask
+# Complétez les instructions ci-dessous
+
+# TODO: Utilisez l'image de base python:3.11-slim
+FROM ___
+
+# TODO: Définissez /app comme répertoire de travail
+WORKDIR ___
+
+# TODO: Copiez le fichier requirements.txt dans le conteneur
+COPY ___ ___
+
+# TODO: Installez les dépendances Python
+RUN ___
+
+# TODO: Copiez tout le code source dans /app
+COPY ___ ___
+
+# TODO: Exposez le port 5000
+EXPOSE ___
+
+# TODO: Définissez la commande de démarrage
+# Format: CMD ["executable", "arg1", "arg2"]
+CMD ___

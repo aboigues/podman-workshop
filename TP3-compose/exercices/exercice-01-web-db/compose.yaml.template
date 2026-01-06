@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Service Web - Nginx
+  web:
+    image: ___               # TODO: nginx:alpine
+    ports:
+      - "___:___"            # TODO: mapper port 8080 → 80
+    networks:
+      - ___                  # TODO: app-network
+    depends_on:
+      - ___                  # TODO: db
+
+  # Service Base de données - PostgreSQL
+  db:
+    image: ___               # TODO: postgres:15
+    environment:
+      POSTGRES_DB: ___       # TODO: nom de votre BDD
+      POSTGRES_USER: ___     # TODO: votre utilisateur
+      POSTGRES_PASSWORD: ___ # TODO: votre mot de passe
+    volumes:
+      - ___:/var/lib/postgresql/data  # TODO: db-data
+    networks:
+      - ___                  # TODO: app-network
+
+# Définition des réseaux
+networks:
+  ___:                       # TODO: app-network
+    driver: ___              # TODO: bridge
+
+# Définition des volumes
+volumes:
+  ___:                       # TODO: db-data
