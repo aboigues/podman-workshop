@@ -9,16 +9,16 @@ fi
 
 case $TP in
     TP1)
-        cd TP1-conteneurs-simples/exercices
-        ./quick-test.sh
+        cd TP1-conteneurs-simples/exercices || exit 1
+        bash quick-test.sh
         ;;
     TP2)
-        cd TP2-dockerfile
-        ./test-all-examples.sh
+        cd TP2-dockerfile || exit 1
+        bash test-all-examples.sh
         ;;
     TP3)
-        cd TP3-compose
-        ./test-all-stacks.sh
+        cd TP3-compose || exit 1
+        bash test-all-stacks.sh
         ;;
     *)
         echo "[ERREUR] TP $TP non supporte pour test automatique"
