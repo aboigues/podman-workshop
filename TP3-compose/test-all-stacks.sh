@@ -6,7 +6,7 @@ echo "=============================="
 FAILED=0
 
 echo "Test Simple Stack..."
-cd simple-stack
+cd simple-stack || exit 1
 podman-compose up -d
 sleep 5
 if curl -s http://localhost:8080 | grep -q "Simple Stack"; then
@@ -16,11 +16,11 @@ else
     ((FAILED++))
 fi
 podman-compose down
-cd ..
+cd .. || exit 1
 
 echo ""
 echo "Test WebApp-DB..."
-cd webapp-db
+cd webapp-db || exit 1
 podman-compose up -d
 sleep 30
 if curl -s http://localhost:8080 | grep -q "PostgreSQL"; then
@@ -31,7 +31,7 @@ else
     ((FAILED++))
 fi
 podman-compose down -v
-cd ..
+cd .. || exit 1
 
 echo ""
 if [ $FAILED -eq 0 ]; then
