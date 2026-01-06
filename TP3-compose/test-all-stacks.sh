@@ -22,11 +22,12 @@ echo ""
 echo "Test WebApp-DB..."
 cd webapp-db
 podman-compose up -d
-sleep 15
+sleep 30
 if curl -s http://localhost:8080 | grep -q "PostgreSQL"; then
     echo "[OK] WebApp avec DB fonctionne"
 else
     echo "[ERREUR] WebApp avec DB"
+    podman-compose logs
     ((FAILED++))
 fi
 podman-compose down -v
