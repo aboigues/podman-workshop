@@ -1,5 +1,5 @@
 # Stage 1: Build React App
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -28,20 +28,8 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copier les fichiers buildés depuis le stage précédent
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Créer un utilisateur non-root
-RUN addgroup -g 101 -S nginx && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx || true
-
-# Ajuster les permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
-
-# Utiliser l'utilisateur non-root
-USER nginx
+# Ajuster les permissions pour l'utilisateur nginx existant
+RUN chown -R nginx:nginx /usr/share/nginx/html
 
 # Exposer le port
 EXPOSE 80
@@ -50,5 +38,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
-# Nginx démarre automatiquement
+# Nginx démarre automatiquement (en root mais drop les privilèges pour les workers)
 CMD ["nginx", "-g", "daemon off;"]
