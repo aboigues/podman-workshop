@@ -32,18 +32,39 @@ podman system prune -af --volumes 2>/dev/null || true
 info "Création du fichier .env de test..."
 cat > .env <<EOF
 # Configuration de test pour TP6
+# Database
+POSTGRES_DB=taskplatform
 POSTGRES_USER=taskuser
 POSTGRES_PASSWORD=testpass123
-POSTGRES_DB=taskplatform
+DB_HOST=postgres
+DB_PORT=5432
 
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
 REDIS_PASSWORD=redistest123
 
-JWT_SECRET=test-jwt-secret-key-do-not-use-in-production
-
+# Backend API
 NODE_ENV=development
+API_PORT=4000
+JWT_SECRET=test-jwt-secret-key-do-not-use-in-production
+JWT_EXPIRES_IN=7d
 
+# Frontend
+REACT_APP_API_URL=http://localhost/api
+
+# Grafana
 GF_SECURITY_ADMIN_USER=admin
 GF_SECURITY_ADMIN_PASSWORD=grafanatest123
+GF_SERVER_ROOT_URL=http://localhost:3001
+
+# Prometheus
+PROMETHEUS_RETENTION=15d
+
+# Nginx
+NGINX_HOST=localhost
+NGINX_PORT=80
+NGINX_SSL_PORT=443
 EOF
 
 info "✓ Fichier .env créé"
