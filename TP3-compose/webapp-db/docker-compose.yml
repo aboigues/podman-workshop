@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build:
@@ -19,7 +17,7 @@ services:
       - webapp-network
 
   database:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: webapp-db
     environment:
       POSTGRES_DB: webapp

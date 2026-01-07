@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     image: nginx:alpine
@@ -13,7 +11,7 @@ services:
       - simple-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: simple-redis
     ports:
       - "6379:6379"

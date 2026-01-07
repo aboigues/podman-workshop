@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Installer les dépendances système
 RUN apt-get update && \
