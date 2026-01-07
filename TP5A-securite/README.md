@@ -515,62 +515,397 @@ ENV API_KEY=super_secret_key_123
 
 # Mauvais : Fichier de configuration avec secrets
 COPY config-with-secrets.yaml /app/config.yaml
+
+# Mauvais : Secret dans l'historique des commandes
+podman run -e DB_PASSWORD=motdepasse123 myapp
 ```
 
-### ✅ Bonnes pratiques
+### 🔐 Hiérarchie des solutions (de la moins à la plus sécurisée)
 
-#### 1. Variables d'environnement au runtime
+#### Niveau 1 : Variables d'environnement (⚠️ À éviter)
+
+**Pourquoi c'est problématique :**
 
 ```bash
-# Passer au lancement
-podman run -e API_KEY=secret123 myapp
+# Les variables sont visibles dans l'inspection
+podman inspect myapp | grep -i password
 
-# Via fichier env
+# Visibles dans les processus
+cat /proc/$(pidof myapp)/environ
+
+# Apparaissent dans les logs système
+podman logs myapp  # Peut exposer les secrets
+
+# Héritées par tous les processus enfants
+# Aucune rotation automatique possible
+```
+
+**Si vous devez absolument les utiliser :**
+
+```bash
+# ⚠️ Moins mauvais : Via fichier env avec permissions strictes
 echo "API_KEY=secret123" > .env
+chmod 600 .env
 podman run --env-file .env myapp
+rm .env  # Supprimer immédiatement après
+
+# ⚠️ Jamais dans l'historique shell
+export API_KEY="secret123"
+podman run -e API_KEY myapp
+unset API_KEY
 ```
 
-#### 2. Podman secrets (Podman 3.1+)
+**Risques :**
+- ❌ Exposition via `podman inspect`
+- ❌ Visible dans `/proc/[PID]/environ`
+- ❌ Logs accidentels
+- ❌ Héritage par processus enfants
+- ❌ Pas de rotation
+- ❌ Stockage en clair
+
+---
+
+#### Niveau 2 : Volumes montés (⭐ Acceptable)
 
 ```bash
-# Créer un secret
-echo "my_secret_password" | podman secret create db_password -
+# Créer le fichier de secrets avec permissions restreintes
+echo "password123" > /secure/secrets.txt
+chmod 600 /secure/secrets.txt
+chown 1001:1001 /secure/secrets.txt  # UID de l'utilisateur du conteneur
 
-# Utiliser le secret
-podman run --secret db_password myapp
-
-# Dans le conteneur, le secret est accessible à :
-# /run/secrets/db_password
+# Monter en lecture seule avec SELinux
+podman run \
+  -v /secure/secrets.txt:/run/secrets/password:ro,Z \
+  --user 1001 \
+  myapp
 ```
 
 **Dans l'application :**
 
 ```python
-# Python
-with open('/run/secrets/db_password', 'r') as f:
-    password = f.read().strip()
+# Python - Lecture sécurisée
+import os
+from pathlib import Path
+
+SECRET_FILE = Path('/run/secrets/password')
+if SECRET_FILE.exists():
+    password = SECRET_FILE.read_text().strip()
+else:
+    raise ValueError("Secret file not found")
 ```
 
-#### 3. Volumes montés avec permissions strictes
+**Avantages :**
+- ✅ Pas visible via `podman inspect`
+- ✅ Permissions Unix strictes
+- ✅ SELinux/AppArmor applicable
+- ✅ Lecture seule possible
+
+**Limites :**
+- ⚠️ Fichier sur le disque hôte
+- ⚠️ Rotation manuelle nécessaire
+
+---
+
+#### Niveau 3 : Podman Secrets (⭐⭐ Recommandé)
+
+**La meilleure solution native Podman** (Podman 3.1+)
 
 ```bash
-# Créer le fichier de secrets avec permissions restreintes
-echo "password123" > secrets.txt
-chmod 600 secrets.txt
+# Créer un secret depuis stdin
+echo "my_secret_password" | podman secret create db_password -
 
-# Monter en lecture seule
-podman run -v ./secrets.txt:/run/secrets/password:ro,Z myapp
+# Créer depuis un fichier
+podman secret create api_key /path/to/secret_file
+
+# Lister les secrets
+podman secret ls
+
+# Inspecter (ne montre PAS le contenu)
+podman secret inspect db_password
+
+# Utiliser le secret dans un conteneur
+podman run --secret db_password myapp
+
+# Utiliser avec un nom personnalisé dans le conteneur
+podman run --secret db_password,target=/app/config/db_pass myapp
+
+# Supprimer un secret
+podman secret rm db_password
 ```
 
-#### 4. Vault ou gestionnaires de secrets externes
+**Dans le conteneur, les secrets sont montés à :**
+- `/run/secrets/[SECRET_NAME]` (par défaut)
+- Ou le chemin spécifié avec `target=`
+
+**Code application :**
+
+```python
+# Python - Lecture des secrets Podman
+from pathlib import Path
+
+def read_secret(secret_name: str) -> str:
+    """Lit un secret Podman de manière sécurisée"""
+    secret_path = Path(f'/run/secrets/{secret_name}')
+
+    if not secret_path.exists():
+        raise FileNotFoundError(f"Secret {secret_name} not found")
+
+    # Vérifier les permissions (doit être 400 ou 600)
+    stat_info = secret_path.stat()
+    if stat_info.st_mode & 0o077:
+        raise PermissionError(f"Secret {secret_name} has insecure permissions")
+
+    return secret_path.read_text().strip()
+
+# Usage
+db_password = read_secret('db_password')
+api_key = read_secret('api_key')
+```
+
+```javascript
+// Node.js - Lecture des secrets Podman
+const fs = require('fs');
+const path = require('path');
+
+function readSecret(secretName) {
+    const secretPath = path.join('/run/secrets', secretName);
+
+    if (!fs.existsSync(secretPath)) {
+        throw new Error(`Secret ${secretName} not found`);
+    }
+
+    return fs.readFileSync(secretPath, 'utf8').trim();
+}
+
+// Usage
+const dbPassword = readSecret('db_password');
+const apiKey = readSecret('api_key');
+```
+
+```go
+// Go - Lecture des secrets Podman
+package main
+
+import (
+    "os"
+    "path/filepath"
+    "strings"
+)
+
+func ReadSecret(secretName string) (string, error) {
+    secretPath := filepath.Join("/run/secrets", secretName)
+
+    data, err := os.ReadFile(secretPath)
+    if err != nil {
+        return "", err
+    }
+
+    return strings.TrimSpace(string(data)), nil
+}
+
+// Usage
+func main() {
+    dbPassword, err := ReadSecret("db_password")
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+**Avec Podman Compose :**
+
+```yaml
+# compose.yaml
+version: '3.8'
+
+services:
+  app:
+    image: myapp:latest
+    secrets:
+      - db_password
+      - api_key
+    environment:
+      - DB_HOST=postgres
+
+  postgres:
+    image: postgres:15-alpine
+    secrets:
+      - db_password
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+
+secrets:
+  db_password:
+    external: true
+  api_key:
+    external: true
+```
 
 ```bash
-# Récupérer depuis HashiCorp Vault
-podman run \
-  -e VAULT_ADDR=https://vault.example.com \
-  -e VAULT_TOKEN=$(cat ~/.vault-token) \
-  myapp
+# Créer les secrets avant de lancer
+echo "postgres_pass" | podman secret create db_password -
+echo "api_secret_key" | podman secret create api_key -
+
+# Lancer avec compose
+podman-compose up -d
 ```
+
+**Avantages :**
+- ✅ Stockage chiffré par Podman
+- ✅ Jamais visible via `podman inspect`
+- ✅ Montés en tmpfs (RAM uniquement, jamais sur disque)
+- ✅ Permissions 400 automatiques
+- ✅ Rotation simplifiée
+- ✅ Audit trail possible
+- ✅ Compatible orchestration (Kubernetes)
+
+---
+
+#### Niveau 4 : Gestionnaires de secrets externes (⭐⭐⭐ Production)
+
+**Pour les environnements de production critiques**
+
+##### A. HashiCorp Vault
+
+```bash
+# Installation du client Vault
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get update && sudo apt-get install vault
+
+# Configurer l'accès Vault
+export VAULT_ADDR="https://vault.example.com"
+export VAULT_TOKEN="s.xxxxxxxxxxxxxxxx"
+
+# Récupérer un secret
+vault kv get -field=password secret/myapp/db
+
+# Injecter dans Podman via script
+DB_PASSWORD=$(vault kv get -field=password secret/myapp/db)
+echo "$DB_PASSWORD" | podman secret create db_password -
+podman run --secret db_password myapp
+```
+
+**Application avec Vault natif :**
+
+```python
+# Python avec hvac (client Vault)
+import hvac
+import os
+
+client = hvac.Client(
+    url=os.getenv('VAULT_ADDR'),
+    token=os.getenv('VAULT_TOKEN')
+)
+
+# Récupérer le secret
+secret = client.secrets.kv.v2.read_secret_version(
+    path='myapp/db',
+    mount_point='secret'
+)
+
+db_password = secret['data']['data']['password']
+```
+
+##### B. AWS Secrets Manager
+
+```bash
+# Installation AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Récupérer un secret
+aws secretsmanager get-secret-value \
+  --secret-id myapp/db_password \
+  --query SecretString \
+  --output text
+
+# Injecter dans Podman
+aws secretsmanager get-secret-value \
+  --secret-id myapp/db_password \
+  --query SecretString \
+  --output text | podman secret create db_password -
+```
+
+##### C. Azure Key Vault
+
+```bash
+# Installation Azure CLI
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# Se connecter
+az login
+
+# Récupérer un secret
+az keyvault secret show \
+  --vault-name mykeyvault \
+  --name db-password \
+  --query value -o tsv
+
+# Injecter dans Podman
+az keyvault secret show \
+  --vault-name mykeyvault \
+  --name db-password \
+  --query value -o tsv | podman secret create db_password -
+```
+
+##### D. Google Cloud Secret Manager
+
+```bash
+# Installation gcloud
+curl https://sdk.cloud.google.com | bash
+
+# Récupérer un secret
+gcloud secrets versions access latest \
+  --secret="db-password"
+
+# Injecter dans Podman
+gcloud secrets versions access latest \
+  --secret="db-password" | podman secret create db_password -
+```
+
+**Avantages des gestionnaires externes :**
+- ✅ Chiffrement au repos et en transit
+- ✅ Rotation automatique des secrets
+- ✅ Audit trail complet
+- ✅ Contrôle d'accès granulaire (IAM, Policies)
+- ✅ Versioning des secrets
+- ✅ Haute disponibilité
+- ✅ Intégration CI/CD
+- ✅ Conformité (PCI-DSS, HIPAA, etc.)
+
+---
+
+### 📋 Tableau comparatif des solutions
+
+| Solution | Sécurité | Simplicité | Rotation | Audit | Production |
+|----------|----------|------------|----------|-------|------------|
+| Variables d'env | ⚠️ Faible | ✅ Très simple | ❌ Manuelle | ❌ Non | ❌ Non |
+| Volumes montés | ⭐ Moyenne | ✅ Simple | ⚠️ Manuelle | ⚠️ Limitée | ⚠️ Petite échelle |
+| Podman Secrets | ⭐⭐ Bonne | ✅ Simple | ✅ Simplifiée | ✅ Oui | ✅ Oui |
+| Vault/Cloud | ⭐⭐⭐ Excellente | ⚠️ Complexe | ✅ Automatique | ✅ Complete | ✅ Recommandé |
+
+---
+
+### 🎯 Recommandations par cas d'usage
+
+**Développement local :**
+- ✅ Podman Secrets
+- ⚠️ Volumes montés (acceptable)
+
+**Tests / Staging :**
+- ✅ Podman Secrets
+- ✅ Vault (si disponible)
+
+**Production :**
+- ✅ Vault / AWS / Azure / GCP
+- ✅ Podman Secrets (acceptable pour petites applications)
+
+**Applications critiques (banque, santé) :**
+- ✅ UNIQUEMENT gestionnaires externes (Vault, Cloud)
+- ✅ Avec HSM (Hardware Security Module)
+- ✅ Rotation automatique obligatoire
 
 ---
 
