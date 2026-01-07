@@ -1,0 +1,51 @@
+# Exemple d'image Alpine durcie
+# Image légère avec configurations de sécurité renforcées
+
+FROM alpine:3.19
+
+# Mettre à jour tous les packages pour corriger les CVE
+RUN apk upgrade --no-cache
+
+# Installer uniquement les packages nécessaires
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    && rm -rf /var/cache/apk/*
+
+# Créer un utilisateur non-root avec UID élevé
+# Utiliser /sbin/nologin pour empêcher les connexions shell
+RUN adduser -D -u 10001 -s /sbin/nologin appuser
+
+WORKDIR /app
+
+# Copier et installer les dépendances (en root)
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt && \
+    rm -rf /root/.cache
+
+# Copier l'application
+COPY app.py .
+
+# Changer le propriétaire des fichiers
+RUN chown -R appuser:appuser /app
+
+# Supprimer les packages de build si installés (exemple)
+# RUN apk del --purge build-dependencies
+
+# Permissions strictes sur les fichiers
+RUN chmod 755 /app && \
+    chmod 644 /app/app.py && \
+    chmod 644 /app/requirements.txt
+
+# Passer à l'utilisateur non-root
+USER appuser
+
+# Port de l'application
+EXPOSE 5000
+
+# Options de sécurité recommandées à l'exécution :
+# podman run --read-only --tmpfs /tmp --cap-drop=ALL \
+#   --security-opt=no-new-privileges appuser
+
+# Commande de démarrage
+CMD ["python3", "app.py"]
