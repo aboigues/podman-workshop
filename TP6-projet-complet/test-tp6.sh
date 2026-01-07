@@ -51,7 +51,7 @@ JWT_SECRET=test-jwt-secret-key-do-not-use-in-production
 JWT_EXPIRES_IN=7d
 
 # Frontend
-REACT_APP_API_URL=http://localhost/api
+REACT_APP_API_URL=http://localhost:8080/api
 
 # Grafana
 GF_SECURITY_ADMIN_USER=admin
@@ -63,8 +63,8 @@ PROMETHEUS_RETENTION=15d
 
 # Nginx
 NGINX_HOST=localhost
-NGINX_PORT=80
-NGINX_SSL_PORT=443
+NGINX_PORT=8080
+NGINX_SSL_PORT=8443
 EOF
 
 info "✓ Fichier .env créé"
@@ -168,8 +168,8 @@ else
     warning "Frontend non démarré"
 fi
 
-# Test Nginx (port 80)
-if curl -sf http://localhost/ &>/dev/null || curl -sf http://localhost &>/dev/null; then
+# Test Nginx (port 8080)
+if curl -sf http://localhost:8080/ &>/dev/null || curl -sf http://localhost:8080 &>/dev/null; then
     info "✓ Nginx répond"
 else
     warning "Nginx ne répond pas encore"
