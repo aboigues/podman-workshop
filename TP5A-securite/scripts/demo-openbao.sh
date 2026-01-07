@@ -55,7 +55,7 @@ echo -e "${GREEN}✅ OpenBao démarré${NC}"
 
 # Attendre qu'OpenBao soit prêt
 echo -e "\n${YELLOW}Attente de la disponibilité d'OpenBao...${NC}"
-for i in {1..30}; do
+for _ in {1..30}; do
     if curl -s $OPENBAO_ADDR/v1/sys/health > /dev/null 2>&1; then
         echo -e "${GREEN}✅ OpenBao est prêt!${NC}\n"
         break
