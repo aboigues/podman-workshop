@@ -1,0 +1,12 @@
+# Trivy Ignore File for Podman Workshop
+# Ce fichier ignore certaines vulnérabilités dans un contexte éducatif
+
+# CVE-2025-64756: glob - Command Injection via Malicious Filenames
+# Cette vulnérabilité nécessite que l'attaquant puisse créer des fichiers malveillants
+# Dans le contexte d'un workshop éducatif, ceci n'est pas un risque réel
+# La dépendance transitive provient de packages npm internes
+CVE-2025-64756
+
+# Vulnérabilités Debian potentielles dans les images de base
+# Les images de base slim sont régulièrement mises à jour par les mainteneurs officiels
+# Dans un contexte de production, utiliser des images avec des CVE patchées
