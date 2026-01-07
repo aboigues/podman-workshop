@@ -6,24 +6,30 @@ Ce répertoire contient des exemples pratiques de Dockerfiles utilisant différe
 
 ### Dockerfiles d'images durcies
 
-1. **`Dockerfile-distroless`** - Google Distroless (Gratuit)
+1. **`Dockerfile-dhi`** - Docker Hardened Images / dhi.io (⭐ Recommandé - Gratuit)
+   - Zéro CVE connus, SBOM complet, signatures vérifiables
+   - Maintenance officielle Docker
+   - Open source (Apache 2.0)
+   - Idéal pour : Tous types d'applications (meilleur choix général)
+
+2. **`Dockerfile-distroless`** - Google Distroless (Gratuit)
    - Image minimale sans shell ni package manager
    - Surface d'attaque réduite au maximum
    - Idéal pour : Applications Python en production
 
-2. **`Dockerfile-chainguard`** - Chainguard/Wolfi (Gratuit)
+3. **`Dockerfile-chainguard`** - Chainguard/Wolfi (Gratuit)
    - Zéro CVE connus à la publication
    - Mises à jour ultra-rapides (< 24h)
    - SBOM et signatures Sigstore
    - Idéal pour : Projets nécessitant conformité stricte
 
-3. **`Dockerfile-ubi-micro`** - Red Hat UBI Micro (Gratuit)
+4. **`Dockerfile-ubi-micro`** - Red Hat UBI Micro (Gratuit)
    - Image ultra-minimale de Red Hat
    - Patchs de sécurité réguliers
    - Compatible RHEL
    - Idéal pour : Infrastructures Red Hat
 
-4. **`Dockerfile-alpine-hardened`** - Alpine durcie
+5. **`Dockerfile-alpine-hardened`** - Alpine durcie
    - Image très légère (~5MB)
    - Configurations de sécurité renforcées
    - Idéal pour : Contraintes de taille
@@ -34,6 +40,72 @@ Ce répertoire contient des exemples pratiques de Dockerfiles utilisant différe
 - **`requirements.txt`** - Dépendances Python
 
 ## Construction et test des images
+
+### 0. Docker Hardened Images (dhi.io) ⭐ Recommandé
+
+```bash
+# Prérequis : Authentification au registre dhi.io
+podman login dhi.io
+# Username: votre_docker_id (même que Docker Hub)
+# Password: votre_mot_de_passe
+
+# Construire
+podman build -t myapp:dhi -f Dockerfile-dhi .
+
+# Tester
+podman run -d -p 5000:5000 --name app-dhi myapp:dhi
+
+# Vérifier
+curl http://localhost:5000/
+curl http://localhost:5000/health
+
+# Nettoyer
+podman stop app-dhi
+podman rm app-dhi
+```
+
+**Caractéristiques :**
+- ✅ **Zéro CVE connus** à la publication
+- ✅ **SBOM complet** (Software Bill of Materials)
+- ✅ **Signatures vérifiables** avec provenance
+- ✅ **Utilisateur non-root** préconfiguré
+- ✅ **Gratuit et open source** (Apache 2.0)
+- ✅ **Maintenance officielle Docker**
+
+**Scanner l'image :**
+
+```bash
+# Vérifier les vulnérabilités (devrait être 0)
+trivy image --severity HIGH,CRITICAL myapp:dhi
+
+# Voir le SBOM
+syft myapp:dhi
+```
+
+**Lancer avec sécurité maximale :**
+
+```bash
+podman run -d \
+  --name app-dhi-secure \
+  -p 5000:5000 \
+  --read-only \
+  --tmpfs /tmp \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges \
+  --memory=512m \
+  --cpus=1.0 \
+  --pids-limit=100 \
+  myapp:dhi
+```
+
+**Pourquoi choisir dhi.io ?**
+- 🥇 **Maintenance officielle** : Soutenu par Docker Inc.
+- 🥇 **Simple** : Même workflow que Docker Hub
+- 🥇 **Gratuit** : Pas de frais, pas de restrictions
+- 🥇 **Sécurité** : Zéro CVE, SBOM, signatures
+- 🥇 **Production-ready** : Configurations durcies par défaut
+
+---
 
 ### 1. Distroless
 
@@ -206,6 +278,7 @@ podman run -d \
 | python:3.13 | ~1 GB | ⚠️ Élevé | ⚠️ Élevé | ✅ Oui | ✅ Oui | Faible |
 | python:3.13-slim | ~150 MB | ⚠️ Moyen | ⚠️ Moyen | ✅ Oui | ✅ Oui | Faible |
 | python:3.13-alpine | ~50 MB | ⚠️ Faible | ⚠️ Faible | ✅ Oui | ✅ Oui | Faible |
+| **dhi.io/python** | ~60 MB | ✅ **Zéro** | ✅ **Zéro** | ⚠️ Minimal | ⚠️ Minimal | **Très faible** |
 | **Distroless** | ~60 MB | ✅ Très faible | ✅ Très faible | ❌ Non | ❌ Non | Moyenne |
 | **Chainguard** | ~40 MB | ✅ **Zéro** | ✅ **Zéro** | ⚠️ Minimal | ⚠️ Minimal | Moyenne |
 | **UBI Micro** | ~80 MB | ✅ Très faible | ✅ Faible | ❌ Non | ❌ Non | Élevée |
@@ -291,55 +364,69 @@ podman run --rm --cap-drop=ALL myapp:alpine
 
 ### 🏠 Développement / Projets personnels
 
-**Recommandation : Chainguard Public ou Distroless**
+**Recommandation : dhi.io (Docker Hardened Images) ⭐**
 
 ```bash
-podman build -t myapp -f Dockerfile-chainguard .
-# ou
-podman build -t myapp -f Dockerfile-distroless .
+podman login dhi.io
+podman build -t myapp -f Dockerfile-dhi .
 ```
 
-**Pourquoi :**
-- Gratuit
-- Zéro ou très peu de CVE
-- Simple à utiliser
+**Alternatives :**
+- Chainguard Public
+- Distroless
+
+**Pourquoi dhi.io :**
+- ✅ Gratuit et open source (Apache 2.0)
+- ✅ Zéro CVE connus
+- ✅ Simple (même workflow que Docker Hub)
+- ✅ Maintenance officielle Docker
 
 ---
 
 ### 🏢 Startup / PME
 
-**Recommandation : Chainguard Public**
+**Recommandation : dhi.io (Docker Hardened Images) ⭐**
 
 ```bash
-podman build -t myapp -f Dockerfile-chainguard .
+podman login dhi.io
+podman build -t myapp -f Dockerfile-dhi .
 ```
 
+**Alternatives :**
+- Chainguard Public
+
 **Pourquoi :**
-- Excellent rapport sécurité/coût (gratuit)
-- Mises à jour rapides
-- SBOM natif pour conformité
+- ✅ Excellent rapport sécurité/coût/simplicité (gratuit)
+- ✅ Mises à jour régulières
+- ✅ SBOM et signatures pour conformité
+- ✅ Pas de vendor lock-in
 
 ---
 
 ### 🏭 Entreprise (production)
 
-**Recommandation : Chainguard Public ou UBI**
+**Recommandation : dhi.io ou Chainguard Public**
 
 ```bash
-# Option 1 : Chainguard (recommandé)
+# Option 1 : dhi.io (recommandé)
+podman login dhi.io
+podman build -t myapp -f Dockerfile-dhi .
+
+# Option 2 : Chainguard
 podman build -t myapp -f Dockerfile-chainguard .
 
-# Option 2 : UBI si infrastructure Red Hat existante
+# Option 3 : UBI si infrastructure Red Hat existante
 podman build -t myapp -f Dockerfile-ubi-micro .
 ```
 
 **Pourquoi :**
-- Zéro CVE (Chainguard)
-- Patchs réguliers
-- Support communautaire actif
+- ✅ Zéro CVE
+- ✅ Patchs réguliers
+- ✅ Support communautaire actif
+- ✅ Gratuit
 
 **Upgrade vers version payante si :**
-- Besoin de SLA contractuels
+- Besoin de SLA contractuels (DHI Enterprise / Chainguard Enterprise)
 - Conformité FIPS requise
 - Support 24/7 nécessaire
 
@@ -347,41 +434,44 @@ podman build -t myapp -f Dockerfile-ubi-micro .
 
 ### 🏦 Entreprise réglementée (finance, santé)
 
-**Recommandation : Chainguard Enterprise (payant) ou UBI + RHEL**
+**Recommandation : DHI Enterprise ou Chainguard Enterprise (payants)**
 
 ```bash
-# Utiliser les images Chainguard Enterprise
+# Option 1 : DHI Enterprise
+# Contact : https://www.docker.com/products/hardened-images/
+
+# Option 2 : Chainguard Enterprise
 # Contact : https://www.chainguard.dev/chainguard-images
 
-# ou Red Hat UBI avec abonnement RHEL
+# Option 3 : Red Hat UBI avec abonnement RHEL
 podman build -t myapp -f Dockerfile-ubi-micro .
 ```
 
 **Pourquoi :**
-- SLA de patching < 24h garanti
-- FIPS 140-2 compliance
-- Support 24/7
-- Conformité certifiée (PCI-DSS, HIPAA)
+- ✅ SLA de patching < 24h garanti
+- ✅ FIPS 140-2 / STIG compliance
+- ✅ Support 24/7
+- ✅ Conformité certifiée (PCI-DSS, HIPAA)
 
 ---
 
 ### 🎖️ Gouvernement / Défense (US)
 
-**Recommandation : Iron Bank**
+**Recommandation : Iron Bank ou DHI Enterprise**
 
 ```bash
+# Option 1 : Iron Bank (DISA STIG, FedRAMP High)
 # Accès via registry1.dso.mil (nécessite compte)
 podman pull registry1.dso.mil/ironbank/opensource/python/python39
 
-# Construire avec base Iron Bank
-FROM registry1.dso.mil/ironbank/opensource/python/python39
-# ... votre application
+# Option 2 : DHI Enterprise (FIPS, STIG compliance)
+# Contact : https://www.docker.com/products/hardened-images/
 ```
 
 **Pourquoi :**
-- Standards DISA STIG
-- FedRAMP High compliance
-- Audits militaires rigoureux
+- ✅ Standards DISA STIG
+- ✅ FedRAMP High compliance
+- ✅ Audits militaires rigoureux
 
 ---
 
@@ -502,6 +592,8 @@ docker login cgr.dev
 
 ### Documentation officielle
 
+- **Docker Hardened Images (dhi.io)** : https://docs.docker.com/dhi/
+- **Docker Hardened Images GitHub** : https://github.com/docker-hardened-images
 - **Google Distroless** : https://github.com/GoogleContainerTools/distroless
 - **Chainguard Images** : https://www.chainguard.dev/chainguard-images
 - **Red Hat UBI** : https://catalog.redhat.com/software/containers/explore
@@ -531,4 +623,4 @@ Les images durcies sont essentielles pour :
 - ✅ Sécurité en profondeur
 - ✅ Audits de sécurité simplifiés
 
-**Recommandation générale :** Commencez avec **Chainguard Public** (gratuit, zéro CVE) et migrez vers une solution payante uniquement si vous avez besoin de SLA contractuels ou de conformité FIPS.
+**Recommandation générale :** Commencez avec **dhi.io (Docker Hardened Images)** (gratuit, zéro CVE, maintenance officielle Docker, open source Apache 2.0). Migrez vers une solution payante (DHI Enterprise ou Chainguard Enterprise) uniquement si vous avez besoin de SLA contractuels, conformité FIPS ou support 24/7.

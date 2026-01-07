@@ -1,0 +1,68 @@
+# Exemple de Dockerfile utilisant Docker Hardened Images (dhi.io)
+# Images durcies officielles : zéro CVE, SBOM complet, signatures vérifiables
+
+# Stage 1: Builder
+FROM dhi.io/python:3.13 AS builder
+
+WORKDIR /app
+
+# Copier les dépendances
+COPY requirements.txt .
+
+# Installer les dépendances dans un répertoire cible
+RUN pip install --no-cache-dir --target=/app/dependencies -r requirements.txt
+
+# Stage 2: Image finale minimale
+FROM dhi.io/python:3.13
+
+WORKDIR /app
+
+# Copier uniquement les dépendances compilées
+COPY --from=builder /app/dependencies /app/dependencies
+
+# Copier l'application
+COPY app.py .
+
+# DHI utilise déjà un utilisateur non-root par défaut (nonroot:nonroot)
+# Pas besoin de créer un nouvel utilisateur
+
+# Configurer PYTHONPATH pour les dépendances
+ENV PYTHONPATH=/app/dependencies
+
+# Exposer le port de l'application
+EXPOSE 5000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+
+# Lancer l'application
+CMD ["python", "app.py"]
+
+# Avantages de dhi.io :
+# ✅ Zéro CVE connus à la publication
+# ✅ SBOM (Software Bill of Materials) complet
+# ✅ Signatures vérifiables
+# ✅ Mises à jour régulières par Docker
+# ✅ Configuration durcie par défaut
+# ✅ Utilisateur non-root préconfiguré
+# ✅ Gratuit et open source (Apache 2.0)
+
+# Construction :
+# podman login dhi.io
+# podman build -t myapp:dhi -f Dockerfile-dhi .
+
+# Lancement sécurisé :
+# podman run -d \
+#   --name myapp-dhi \
+#   -p 5000:5000 \
+#   --read-only \
+#   --tmpfs /tmp \
+#   --cap-drop=ALL \
+#   --security-opt=no-new-privileges \
+#   --memory=512m \
+#   --cpus=1.0 \
+#   myapp:dhi
+
+# Scanner l'image :
+# trivy image --severity HIGH,CRITICAL myapp:dhi
