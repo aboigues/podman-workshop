@@ -25,12 +25,21 @@
 # Scanner une image
 ./scripts/scan-image.sh nginx:alpine
 
+# Comparer les images durcies
+./scripts/compare-hardened-images.sh
+
 # Tester les capabilities
 ./scripts/test-capabilities.sh
 
-# Construire une image sécurisée
+# Construire une image sécurisée standard
 cd exemples
 podman build -t secure-app -f Dockerfile-secure .
+
+# Construire des images durcies
+podman build -t myapp:distroless -f Dockerfile-distroless .
+podman build -t myapp:chainguard -f Dockerfile-chainguard .
+podman build -t myapp:ubi -f Dockerfile-ubi-micro .
+podman build -t myapp:alpine -f Dockerfile-alpine-hardened .
 ```
 
 ---
@@ -502,6 +511,554 @@ CMD ["/app"]
 - Image finale ne contient que le binaire
 - Pas d'outils de build dans l'image de production
 - Surface d'attaque minimale
+
+---
+
+## Images durcies (Hardened Images)
+
+### Qu'est-ce qu'une image durcie ?
+
+Une **image durcie (hardened image)** est une image de conteneur spécialement conçue et configurée pour offrir un niveau de sécurité maximal :
+
+**Caractéristiques principales :**
+- 🛡️ **Sans CVE connus** : Patchée contre les vulnérabilités connues
+- 📦 **Minimale** : Surface d'attaque réduite (pas de shell, packages minimaux)
+- 🔒 **Configurations sécurisées** : Permissions strictes, utilisateur non-root
+- 📝 **SBOM (Software Bill of Materials)** : Liste complète des composants
+- ✅ **Signatures vérifiables** : Garantie d'authenticité
+- 🔄 **Mises à jour rapides** : Patchs de sécurité en < 24h
+
+### Pourquoi utiliser des images durcies ?
+
+**Avantages :**
+- ✅ Conformité réglementaire (PCI-DSS, HIPAA, SOC 2)
+- ✅ Réduction des vulnérabilités de 60-90%
+- ✅ Attaque surface minimale
+- ✅ Moins de false positives dans les scans
+- ✅ Approbation plus rapide des audits de sécurité
+- ✅ Mises à jour de sécurité automatisées
+
+**Cas d'usage :**
+- Applications critiques (finance, santé, gouvernement)
+- Environnements de production réglementés
+- Infrastructure cloud sécurisée
+- Chaînes CI/CD avec exigences de sécurité strictes
+
+---
+
+### Options gratuites
+
+#### 1. Google Distroless (⭐ Recommandé - Gratuit)
+
+**Description :** Images minimales sans distribution Linux complète, créées par Google.
+
+**Avantages :**
+- ✅ Pas de shell, package manager, ou outils système
+- ✅ Surface d'attaque minimale
+- ✅ Images très légères
+- ✅ Mises à jour régulières par Google
+- ✅ 100% gratuit et open source
+
+**Images disponibles :**
+- `gcr.io/distroless/static` - Binaires statiques seulement
+- `gcr.io/distroless/base` - glibc + openssl
+- `gcr.io/distroless/python3` - Python 3
+- `gcr.io/distroless/java17` - OpenJDK 17
+- `gcr.io/distroless/nodejs` - Node.js
+- `gcr.io/distroless/cc` - C/C++
+
+**Exemple Dockerfile :**
+
+```dockerfile
+# Multi-stage avec Distroless
+FROM golang:1.21 AS builder
+WORKDIR /build
+COPY . .
+RUN CGO_ENABLED=0 go build -o app
+
+# Image finale distroless
+FROM gcr.io/distroless/static-debian12:nonroot
+
+# Copier uniquement le binaire
+COPY --from=builder /build/app /app
+
+USER nonroot:nonroot
+
+CMD ["/app"]
+```
+
+**Utilisation avec Python :**
+
+```dockerfile
+FROM python:3.13-slim AS builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --target=/app/dependencies -r requirements.txt
+
+FROM gcr.io/distroless/python3-debian12:nonroot
+WORKDIR /app
+
+# Copier les dépendances et l'application
+COPY --from=builder /app/dependencies /app
+COPY app.py .
+
+ENV PYTHONPATH=/app
+
+USER nonroot:nonroot
+
+CMD ["app.py"]
+```
+
+**Limitations :**
+- ⚠️ Pas de shell → Difficile à déboguer
+- ⚠️ Pas de package manager → Pas d'installation à runtime
+- ⚠️ Nécessite multi-stage builds
+
+**Debug d'une image Distroless :**
+```bash
+# Utiliser la variante :debug (temporaire uniquement)
+FROM gcr.io/distroless/python3-debian12:debug
+
+# Lancer un shell pour debug
+podman run -it --entrypoint /busybox/sh myapp:debug
+```
+
+---
+
+#### 2. Wolfi / Chainguard Images (⭐⭐ Recommandé - Gratuit)
+
+**Description :** Distribution Linux ultra-minimale créée par Chainguard, avec mises à jour de sécurité en < 24h.
+
+**Avantages :**
+- ✅ **Zéro CVE connus** à la publication
+- ✅ Patchs de sécurité ultra-rapides (< 24h)
+- ✅ SBOM natif (Software Bill of Materials)
+- ✅ Images signées avec Sigstore
+- ✅ Compatible glibc (pas musl comme Alpine)
+- ✅ Versions gratuites disponibles sur Docker Hub
+
+**Images gratuites (cgr.dev) :**
+- `cgr.dev/chainguard/python:latest` - Python
+- `cgr.dev/chainguard/node:latest` - Node.js
+- `cgr.dev/chainguard/go:latest` - Go
+- `cgr.dev/chainguard/nginx:latest` - Nginx
+- `cgr.dev/chainguard/postgres:latest` - PostgreSQL
+- `cgr.dev/chainguard/redis:latest` - Redis
+
+**Exemple Dockerfile :**
+
+```dockerfile
+FROM cgr.dev/chainguard/python:latest-dev AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+
+# Installer les dépendances
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM cgr.dev/chainguard/python:latest
+
+WORKDIR /app
+
+# Copier les dépendances depuis le builder
+COPY --from=builder /home/nonroot/.local /home/nonroot/.local
+COPY app.py .
+
+# Wolfi utilise l'utilisateur nonroot (UID 65532)
+USER nonroot
+
+ENV PATH=/home/nonroot/.local/bin:$PATH
+
+CMD ["python", "app.py"]
+```
+
+**Vérifier les signatures :**
+
+```bash
+# Installer cosign
+curl -O -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+sudo chmod +x /usr/local/bin/cosign
+
+# Vérifier la signature d'une image
+cosign verify cgr.dev/chainguard/python:latest \
+  --certificate-identity-regexp=https://github.com/chainguard-images \
+  --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+```
+
+**Comparaison Gratuit vs Payant :**
+
+| Fonctionnalité | Gratuit (Public) | Entreprise (Payant) |
+|----------------|------------------|---------------------|
+| Images de base | ✅ Oui | ✅ Oui |
+| Mises à jour | ✅ Best effort | ✅ Garanties SLA |
+| Support | ⚠️ Communauté | ✅ Support 24/7 |
+| Images privées | ❌ Non | ✅ Oui |
+| FIPS compliance | ❌ Non | ✅ Oui |
+| Conformité FedRAMP | ❌ Non | ✅ Oui |
+
+---
+
+#### 3. Alpine Linux Hardened
+
+**Description :** Distribution Linux minimale avec profil de sécurité renforcé.
+
+**Avantages :**
+- ✅ Très légère (5 MB)
+- ✅ Package manager (apk)
+- ✅ Communauté active
+- ✅ Largement utilisée
+
+**Exemple Dockerfile :**
+
+```dockerfile
+FROM alpine:3.19
+
+# Installer les dépendances minimales
+RUN apk add --no-cache python3 py3-pip
+
+# Créer utilisateur non-root
+RUN adduser -D -u 1001 appuser
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+
+COPY app.py .
+
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
+CMD ["python3", "app.py"]
+```
+
+**Durcir Alpine :**
+
+```dockerfile
+FROM alpine:3.19
+
+# 1. Mettre à jour tous les packages
+RUN apk upgrade --no-cache
+
+# 2. Supprimer les packages inutiles
+RUN apk del --purge apk-tools
+
+# 3. Supprimer les caches
+RUN rm -rf /var/cache/apk/* /tmp/*
+
+# 4. Utilisateur non-root avec UID élevé
+RUN adduser -D -u 10001 -s /sbin/nologin appuser
+
+USER appuser
+
+CMD ["/app"]
+```
+
+**Limitations :**
+- ⚠️ Utilise musl libc (incompatibilités possibles)
+- ⚠️ Packages parfois obsolètes
+- ⚠️ Peut contenir des CVE
+
+---
+
+#### 4. Red Hat Universal Base Images (UBI)
+
+**Description :** Images de base de Red Hat, redistribuables gratuitement.
+
+**Avantages :**
+- ✅ Gratuites (pas besoin d'abonnement RHEL)
+- ✅ Patchs de sécurité réguliers
+- ✅ Compatibilité RHEL
+- ✅ Support communautaire
+
+**Images disponibles :**
+- `registry.access.redhat.com/ubi9/ubi` - Complète
+- `registry.access.redhat.com/ubi9/ubi-minimal` - Minimale
+- `registry.access.redhat.com/ubi9/ubi-micro` - Ultra-minimale
+- `registry.access.redhat.com/ubi9/python-311` - Python 3.11
+- `registry.access.redhat.com/ubi9/nodejs-18` - Node.js 18
+
+**Exemple Dockerfile :**
+
+```dockerfile
+FROM registry.access.redhat.com/ubi9/python-311
+
+# Copier l'application
+WORKDIR /app
+COPY requirements.txt .
+
+# Installer les dépendances
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py .
+
+# UBI utilise UID 1001 par défaut
+USER 1001
+
+CMD ["python", "app.py"]
+```
+
+**UBI Micro (ultra-minimale) :**
+
+```dockerfile
+FROM registry.access.redhat.com/ubi9/ubi-minimal AS builder
+
+RUN microdnf install -y python3 python3-pip
+COPY requirements.txt .
+RUN pip3 install --target=/app/deps -r requirements.txt
+
+# Image finale micro (pas de package manager)
+FROM registry.access.redhat.com/ubi9/ubi-micro
+
+COPY --from=builder /usr/bin/python3 /usr/bin/
+COPY --from=builder /app/deps /app/deps
+COPY app.py /app/
+
+ENV PYTHONPATH=/app/deps
+
+USER 1001
+
+CMD ["/usr/bin/python3", "/app/app.py"]
+```
+
+---
+
+#### 5. Iron Bank (DoD Hardened Containers)
+
+**Description :** Dépôt d'images durcies du Département de la Défense américain (DoD).
+
+**Avantages :**
+- ✅ Standards de sécurité militaires (DISA STIG)
+- ✅ Scans et audits rigoureux
+- ✅ Certaines images publiques gratuites
+- ✅ Conformité FedRAMP, NIST
+
+**Accès :**
+- Public : `registry1.dso.mil` (images limitées)
+- Privé : Nécessite compte DoD CAC/PKI
+
+**Exemple d'images publiques :**
+- `registry1.dso.mil/ironbank/opensource/nginx/nginx:latest`
+- `registry1.dso.mil/ironbank/opensource/postgres/postgresql:latest`
+
+```bash
+# Utiliser une image Iron Bank
+podman pull registry1.dso.mil/ironbank/opensource/nginx/nginx:1.24
+
+podman run -d -p 8080:8080 \
+  registry1.dso.mil/ironbank/opensource/nginx/nginx:1.24
+```
+
+**Note :** Accès complet nécessite enregistrement sur https://registry1.dso.mil
+
+---
+
+### Options payantes
+
+#### 1. Chainguard Images Enterprise (⭐ Recommandé)
+
+**Prix :** Sur devis (environ $50-150/image/mois selon volume)
+
+**Avantages supplémentaires vs gratuit :**
+- ✅ **SLA de patching < 24h** (garanti contractuellement)
+- ✅ **Support 24/7** avec ingénieurs sécurité
+- ✅ **Images privées personnalisées**
+- ✅ **FIPS 140-2 compliance**
+- ✅ **FedRAMP Moderate authorized**
+- ✅ **Dashboard de gouvernance** (CVE tracking, compliance)
+- ✅ **Intégrations avancées** (Kubernetes admission controllers)
+- ✅ **Attestations de build** (provenance SLSA)
+
+**Cas d'usage :**
+- Entreprises soumises à conformité stricte
+- Services financiers, santé réglementée
+- Contrats gouvernementaux (FedRAMP)
+
+**Site web :** https://www.chainguard.dev/chainguard-images
+
+---
+
+#### 2. Red Hat UBI avec abonnement RHEL
+
+**Prix :** Inclus avec abonnement Red Hat Enterprise Linux ($349-$1299/an)
+
+**Avantages supplémentaires :**
+- ✅ Support officiel Red Hat
+- ✅ SLA de sécurité garantis
+- ✅ Extended Lifecycle Support (ELS)
+- ✅ Accès au support technique 24/7
+- ✅ Conformité certifiée (ISO, FIPS)
+
+**Cas d'usage :**
+- Infrastructures déjà sur RHEL
+- Nécessite support entreprise
+
+---
+
+#### 3. VMware Bitnami+
+
+**Prix :** Sur devis (intégré à VMware Tanzu)
+
+**Avantages :**
+- ✅ Images maintenues et patchées par VMware
+- ✅ Support commercial 24/7
+- ✅ Intégration avec VMware Tanzu
+- ✅ Scans de vulnérabilités automatiques
+
+**Cas d'usage :**
+- Entreprises utilisant VMware
+- Besoin de support commercial
+
+---
+
+#### 4. Aqua Security DTA (Dynamic Threat Analysis)
+
+**Prix :** Sur devis (plateforme complète)
+
+**Description :** Plateforme de sécurité complète avec images durcies.
+
+**Avantages :**
+- ✅ Images durcies + plateforme de sécurité
+- ✅ Runtime protection
+- ✅ Compliance automatisée
+- ✅ Threat intelligence intégrée
+
+---
+
+### Comparaison des options
+
+| Solution | Coût | CVE | SBOM | Support | FIPS | Complexité |
+|----------|------|-----|------|---------|------|------------|
+| **Distroless** | Gratuit | ⚠️ Moyen | ✅ | Communauté | ❌ | Moyenne |
+| **Wolfi/Chainguard Public** | Gratuit | ✅ Excellent | ✅ | Communauté | ❌ | Faible |
+| **Alpine** | Gratuit | ⚠️ Moyen | ⚠️ | Communauté | ❌ | Faible |
+| **UBI (gratuit)** | Gratuit | ✅ Bon | ✅ | Communauté | ⚠️ | Faible |
+| **Iron Bank** | Gratuit* | ✅ Excellent | ✅ | Limité | ✅ | Moyenne |
+| **Chainguard Enterprise** | $$$ | ✅ Excellent | ✅ | 24/7 | ✅ | Faible |
+| **UBI + RHEL** | $$ | ✅ Excellent | ✅ | 24/7 | ✅ | Faible |
+
+*Iron Bank : Gratuit pour images publiques, CAC requis pour accès complet
+
+---
+
+### Recommandations par contexte
+
+**Développement / Projets personnels :**
+- 🥇 **Wolfi/Chainguard Public** (zéro CVE, gratuit)
+- 🥈 Distroless (minimaliste)
+- 🥉 Alpine (légère, simple)
+
+**Startup / PME :**
+- 🥇 **Wolfi/Chainguard Public** (excellent rapport sécurité/coût)
+- 🥈 UBI gratuit (stabilité Red Hat)
+- 🥉 Distroless (minimaliste)
+
+**Entreprise (sans contraintes réglementaires) :**
+- 🥇 **Wolfi/Chainguard Public**
+- 🥈 UBI + RHEL (si infrastructure Red Hat)
+- 🥉 Chainguard Enterprise (pour SLA)
+
+**Entreprise réglementée (finance, santé) :**
+- 🥇 **Chainguard Enterprise** (FIPS, SLA, FedRAMP)
+- 🥈 UBI + RHEL (support 24/7)
+- 🥉 Iron Bank (si gouvernement US)
+
+**Gouvernement / Défense (US) :**
+- 🥇 **Iron Bank** (DISA STIG, FedRAMP High)
+- 🥈 Chainguard Enterprise (FedRAMP Moderate)
+
+**Infrastructure Kubernetes production :**
+- 🥇 **Chainguard Enterprise** (admission controllers)
+- 🥈 Wolfi/Chainguard Public
+- 🥉 UBI + RHEL
+
+---
+
+### Scanner et comparer les images
+
+**Script de comparaison :**
+
+```bash
+#!/bin/bash
+# compare-images.sh - Compare les vulnérabilités de différentes images
+
+echo "=== Comparaison d'images durcies ==="
+echo ""
+
+IMAGES=(
+  "python:3.13-slim"
+  "python:3.13-alpine"
+  "cgr.dev/chainguard/python:latest"
+  "gcr.io/distroless/python3-debian12"
+  "registry.access.redhat.com/ubi9/python-311"
+)
+
+for image in "${IMAGES[@]}"; do
+  echo "📦 Image: $image"
+
+  # Pull l'image
+  podman pull $image 2>/dev/null
+
+  # Scanner avec Trivy
+  critical=$(trivy image --severity CRITICAL --quiet $image 2>/dev/null | grep -c "CRITICAL" || echo "0")
+  high=$(trivy image --severity HIGH --quiet $image 2>/dev/null | grep -c "HIGH" || echo "0")
+
+  # Taille de l'image
+  size=$(podman images $image --format "{{.Size}}")
+
+  echo "   🔴 CRITICAL: $critical"
+  echo "   🟠 HIGH: $high"
+  echo "   💾 Size: $size"
+  echo ""
+done
+
+echo "Recommandation: Utilisez l'image avec le moins de vulnérabilités"
+```
+
+**Exécution :**
+
+```bash
+chmod +x compare-images.sh
+./compare-images.sh
+```
+
+---
+
+### Vérification et validation
+
+**Checklist pour valider une image durcie :**
+
+- [ ] Scan Trivy sans vulnérabilités CRITICAL/HIGH
+- [ ] Utilisateur non-root configuré
+- [ ] Pas de shell dans l'image finale (distroless/micro)
+- [ ] SBOM disponible et vérifiable
+- [ ] Signature d'image vérifiée (cosign)
+- [ ] Image multi-stage (build séparé du runtime)
+- [ ] Pas de secrets dans les layers
+- [ ] Permissions fichiers restrictives
+- [ ] Read-only filesystem compatible
+- [ ] Documentation des exceptions de sécurité
+
+**Commandes de validation :**
+
+```bash
+# 1. Scanner l'image
+trivy image --severity HIGH,CRITICAL myapp:latest
+
+# 2. Vérifier l'utilisateur
+podman run --rm myapp:latest id
+
+# 3. Vérifier les packages installés
+podman run --rm myapp:latest sh -c "apk list" 2>/dev/null || echo "Pas de package manager (OK)"
+
+# 4. Tester le read-only filesystem
+podman run --read-only --tmpfs /tmp myapp:latest
+
+# 5. Vérifier les capabilities
+podman run --rm myapp:latest capsh --print 2>/dev/null || echo "Pas de capsh (OK)"
+```
 
 ---
 

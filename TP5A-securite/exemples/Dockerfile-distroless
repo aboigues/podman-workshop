@@ -1,0 +1,36 @@
+# Exemple d'image durcie avec Google Distroless
+# Cette image n'a pas de shell, package manager, ou outils système
+# Surface d'attaque minimale
+
+# Stage 1 : Build
+FROM python:3.13-slim AS builder
+
+WORKDIR /app
+
+# Installer les dépendances dans un répertoire cible
+COPY requirements.txt .
+RUN pip install --no-cache-dir --target=/app/dependencies -r requirements.txt
+
+# Copier l'application
+COPY app.py .
+
+# Stage 2 : Runtime avec Distroless
+FROM gcr.io/distroless/python3-debian12:nonroot
+
+WORKDIR /app
+
+# Copier les dépendances depuis le builder
+COPY --from=builder /app/dependencies /app
+COPY --from=builder /app/app.py .
+
+# Configuration de Python pour trouver les dépendances
+ENV PYTHONPATH=/app
+
+# Utilisateur non-root (UID 65532)
+USER nonroot:nonroot
+
+# Port de l'application
+EXPOSE 5000
+
+# Commande de démarrage
+CMD ["app.py"]

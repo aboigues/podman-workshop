@@ -1,0 +1,37 @@
+# Exemple d'image durcie avec Chainguard (Wolfi)
+# Images avec zéro CVE connus et mises à jour ultra-rapides (< 24h)
+# SBOM natif et signatures Sigstore
+
+# Stage 1 : Build avec l'image -dev qui contient pip
+FROM cgr.dev/chainguard/python:latest-dev AS builder
+
+WORKDIR /app
+
+# Copier et installer les dépendances
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier l'application
+COPY app.py .
+
+# Stage 2 : Runtime avec l'image minimale
+FROM cgr.dev/chainguard/python:latest
+
+WORKDIR /app
+
+# Copier les dépendances installées depuis le builder
+# Chainguard utilise l'utilisateur nonroot (UID 65532)
+COPY --from=builder --chown=nonroot:nonroot /home/nonroot/.local /home/nonroot/.local
+COPY --from=builder --chown=nonroot:nonroot /app/app.py .
+
+# Ajouter le répertoire des binaires Python au PATH
+ENV PATH=/home/nonroot/.local/bin:$PATH
+
+# Utilisateur non-root
+USER nonroot
+
+# Port de l'application
+EXPOSE 5000
+
+# Commande de démarrage
+CMD ["python", "app.py"]
