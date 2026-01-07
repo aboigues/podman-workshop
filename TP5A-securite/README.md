@@ -35,7 +35,12 @@
 cd exemples
 podman build -t secure-app -f Dockerfile-secure .
 
-# Construire des images durcies
+# Utiliser des images durcies (DHI - Docker Hardened Images)
+podman login dhi.io  # Authentification avec Docker ID
+podman pull dhi.io/python:3.13
+podman run -d -p 5000:5000 dhi.io/python:3.13
+
+# Construire des images durcies personnalisées
 podman build -t myapp:distroless -f Dockerfile-distroless .
 podman build -t myapp:chainguard -f Dockerfile-chainguard .
 podman build -t myapp:ubi -f Dockerfile-ubi-micro .
@@ -550,7 +555,118 @@ Une **image durcie (hardened image)** est une image de conteneur spécialement c
 
 ### Options gratuites
 
-#### 1. Google Distroless (⭐ Recommandé - Gratuit)
+#### 1. Docker Hardened Images - dhi.io (⭐⭐⭐ Hautement Recommandé - Gratuit et Open Source)
+
+**Description :** Images de conteneurs officielles durcies par Docker, maintenant **gratuites et open source** (Apache 2.0) depuis décembre 2025.
+
+**Avantages :**
+- ✅ **Zéro CVE connus** à la publication
+- ✅ **100% gratuit et open source** (Apache 2.0)
+- ✅ **SBOM complet** (Software Bill of Materials)
+- ✅ **Signatures vérifiables** avec provenance supply chain
+- ✅ **Mises à jour régulières** par Docker
+- ✅ **Production-ready** avec configurations durcies
+- ✅ **Pas de restrictions d'usage** ni de vendor lock-in
+- ✅ Compatible avec Podman et tous les runtimes OCI
+
+**Registre :** `dhi.io`
+
+**Images disponibles :**
+- `dhi.io/python` - Python (3.9, 3.10, 3.11, 3.12, 3.13)
+- `dhi.io/node` - Node.js
+- `dhi.io/postgres` - PostgreSQL
+- `dhi.io/nginx` - Nginx
+- `dhi.io/mongodb` - MongoDB
+- `dhi.io/redis` - Redis
+- `dhi.io/golang` - Go
+- Et bien d'autres dans le [catalogue officiel](https://github.com/docker-hardened-images/catalog)
+
+**Authentification :**
+
+```bash
+# Se connecter avec vos identifiants Docker ID (même que Docker Hub)
+podman login dhi.io
+# Username: votre_docker_id
+# Password: votre_mot_de_passe
+```
+
+**Exemple d'utilisation simple :**
+
+```bash
+# Authentification
+podman login dhi.io
+
+# Pull d'une image durcie
+podman pull dhi.io/python:3.13
+
+# Lancer un conteneur
+podman run -d -p 5000:5000 --name app-dhi dhi.io/python:3.13
+```
+
+**Exemple Dockerfile :**
+
+```dockerfile
+# Multi-stage build avec DHI
+FROM dhi.io/python:3.13 AS builder
+
+WORKDIR /app
+
+# Installer les dépendances
+COPY requirements.txt .
+RUN pip install --no-cache-dir --target=/app/dependencies -r requirements.txt
+
+# Image finale
+FROM dhi.io/python:3.13
+
+WORKDIR /app
+
+# Copier les dépendances
+COPY --from=builder /app/dependencies /app/dependencies
+COPY app.py .
+
+# DHI utilise déjà un utilisateur non-root par défaut
+ENV PYTHONPATH=/app/dependencies
+
+CMD ["python", "app.py"]
+```
+
+**Scanner une image DHI :**
+
+```bash
+# Vérifier qu'il n'y a pas de CVE
+trivy image --severity HIGH,CRITICAL dhi.io/python:3.13
+
+# Résultat attendu : 0 vulnérabilités CRITICAL/HIGH
+```
+
+**Vérifier le SBOM :**
+
+```bash
+# Voir le Software Bill of Materials
+podman image inspect dhi.io/python:3.13 --format '{{.Config.Labels}}'
+
+# Ou utiliser syft
+syft dhi.io/python:3.13
+```
+
+**Avantages par rapport aux alternatives :**
+- ✅ **Maintenance officielle Docker** (plus de ressources que projets communautaires)
+- ✅ **Gratuit sans restrictions** (contrairement à Chainguard Enterprise)
+- ✅ **Large catalogue** d'images populaires
+- ✅ **Migration facile** depuis les images Docker Hub classiques
+- ✅ **Pas de changement de workflow** (même registre pattern)
+
+**Upgrade vers DHI Enterprise (optionnel - payant) :**
+- FIPS 140-2 compliance variants
+- STIG compliance variants
+- Customization capabilities
+- SLA-backed support 24/7
+
+**Site web :** https://www.docker.com/products/hardened-images/
+
+---
+
+#### 2. Google Distroless (⭐ Recommandé - Gratuit)
 
 **Description :** Images minimales sans distribution Linux complète, créées par Google.
 
@@ -627,7 +743,7 @@ podman run -it --entrypoint /busybox/sh myapp:debug
 
 ---
 
-#### 2. Wolfi / Chainguard Images (⭐⭐ Recommandé - Gratuit)
+#### 3. Wolfi / Chainguard Images (⭐⭐ Recommandé - Gratuit)
 
 **Description :** Distribution Linux ultra-minimale créée par Chainguard, avec mises à jour de sécurité en < 24h.
 
@@ -701,7 +817,7 @@ cosign verify cgr.dev/chainguard/python:latest \
 
 ---
 
-#### 3. Alpine Linux Hardened
+#### 4. Alpine Linux Hardened
 
 **Description :** Distribution Linux minimale avec profil de sécurité renforcé.
 
@@ -765,7 +881,7 @@ CMD ["/app"]
 
 ---
 
-#### 4. Red Hat Universal Base Images (UBI)
+#### 5. Red Hat Universal Base Images (UBI)
 
 **Description :** Images de base de Red Hat, redistribuables gratuitement.
 
@@ -827,7 +943,7 @@ CMD ["/usr/bin/python3", "/app/app.py"]
 
 ---
 
-#### 5. Iron Bank (DoD Hardened Containers)
+#### 6. Iron Bank (DoD Hardened Containers)
 
 **Description :** Dépôt d'images durcies du Département de la Défense américain (DoD).
 
@@ -933,8 +1049,9 @@ podman run -d -p 8080:8080 \
 
 | Solution | Coût | CVE | SBOM | Support | FIPS | Complexité |
 |----------|------|-----|------|---------|------|------------|
-| **Distroless** | Gratuit | ⚠️ Moyen | ✅ | Communauté | ❌ | Moyenne |
+| **dhi.io (Docker DHI)** | Gratuit | ✅ Excellent | ✅ | Docker/Communauté | ⚠️ Enterprise | Très faible |
 | **Wolfi/Chainguard Public** | Gratuit | ✅ Excellent | ✅ | Communauté | ❌ | Faible |
+| **Distroless** | Gratuit | ⚠️ Moyen | ✅ | Communauté | ❌ | Moyenne |
 | **Alpine** | Gratuit | ⚠️ Moyen | ⚠️ | Communauté | ❌ | Faible |
 | **UBI (gratuit)** | Gratuit | ✅ Bon | ✅ | Communauté | ⚠️ | Faible |
 | **Iron Bank** | Gratuit* | ✅ Excellent | ✅ | Limité | ✅ | Moyenne |
@@ -948,33 +1065,35 @@ podman run -d -p 8080:8080 \
 ### Recommandations par contexte
 
 **Développement / Projets personnels :**
-- 🥇 **Wolfi/Chainguard Public** (zéro CVE, gratuit)
-- 🥈 Distroless (minimaliste)
-- 🥉 Alpine (légère, simple)
-
-**Startup / PME :**
-- 🥇 **Wolfi/Chainguard Public** (excellent rapport sécurité/coût)
-- 🥈 UBI gratuit (stabilité Red Hat)
+- 🥇 **dhi.io (Docker DHI)** (zéro CVE, gratuit, simple)
+- 🥈 Wolfi/Chainguard Public (zéro CVE, gratuit)
 - 🥉 Distroless (minimaliste)
 
+**Startup / PME :**
+- 🥇 **dhi.io (Docker DHI)** (excellent rapport sécurité/coût/simplicité)
+- 🥈 Wolfi/Chainguard Public (excellent rapport sécurité/coût)
+- 🥉 UBI gratuit (stabilité Red Hat)
+
 **Entreprise (sans contraintes réglementaires) :**
-- 🥇 **Wolfi/Chainguard Public**
-- 🥈 UBI + RHEL (si infrastructure Red Hat)
-- 🥉 Chainguard Enterprise (pour SLA)
+- 🥇 **dhi.io (Docker DHI)** (gratuit, maintenance officielle)
+- 🥈 Wolfi/Chainguard Public
+- 🥉 UBI + RHEL (si infrastructure Red Hat)
 
 **Entreprise réglementée (finance, santé) :**
 - 🥇 **Chainguard Enterprise** (FIPS, SLA, FedRAMP)
-- 🥈 UBI + RHEL (support 24/7)
-- 🥉 Iron Bank (si gouvernement US)
+- 🥈 DHI Enterprise (FIPS, STIG, support SLA)
+- 🥉 UBI + RHEL (support 24/7)
+- 🏅 Iron Bank (si gouvernement US)
 
 **Gouvernement / Défense (US) :**
 - 🥇 **Iron Bank** (DISA STIG, FedRAMP High)
-- 🥈 Chainguard Enterprise (FedRAMP Moderate)
+- 🥈 DHI Enterprise (FIPS, STIG compliance)
+- 🥉 Chainguard Enterprise (FedRAMP Moderate)
 
 **Infrastructure Kubernetes production :**
-- 🥇 **Chainguard Enterprise** (admission controllers)
-- 🥈 Wolfi/Chainguard Public
-- 🥉 UBI + RHEL
+- 🥇 **dhi.io (Docker DHI)** (simple, gratuit, maintenance officielle)
+- 🥈 Chainguard Enterprise (admission controllers)
+- 🥉 Wolfi/Chainguard Public
 
 ---
 
@@ -992,6 +1111,7 @@ echo ""
 IMAGES=(
   "python:3.13-slim"
   "python:3.13-alpine"
+  "dhi.io/python:3.13"
   "cgr.dev/chainguard/python:latest"
   "gcr.io/distroless/python3-debian12"
   "registry.access.redhat.com/ubi9/python-311"
