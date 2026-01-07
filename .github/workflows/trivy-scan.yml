@@ -1,0 +1,246 @@
+name: Trivy Security Scan
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**/Dockerfile*'
+      - 'TP2-dockerfile/**'
+      - 'TP3-compose/**'
+      - 'TP6-projet-complet/**'
+      - 'TP5A-securite/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/Dockerfile*'
+      - 'TP2-dockerfile/**'
+      - 'TP3-compose/**'
+      - 'TP6-projet-complet/**'
+      - 'TP5A-securite/**'
+  workflow_dispatch:
+
+jobs:
+  # Détection des changements pour exécuter uniquement les scans nécessaires
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      tp2: ${{ steps.filter.outputs.tp2 }}
+      tp3: ${{ steps.filter.outputs.tp3 }}
+      tp6: ${{ steps.filter.outputs.tp6 }}
+      tp5a: ${{ steps.filter.outputs.tp5a }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            tp2:
+              - 'TP2-dockerfile/**'
+            tp3:
+              - 'TP3-compose/**'
+            tp6:
+              - 'TP6-projet-complet/**'
+            tp5a:
+              - 'TP5A-securite/**'
+
+  scan-tp2-images:
+    name: Scan TP2 Docker Images
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tp2 == 'true'
+    strategy:
+      matrix:
+        image:
+          - name: python-app
+            context: TP2-dockerfile/python-app
+            dockerfile: TP2-dockerfile/python-app/Dockerfile
+          - name: go-app
+            context: TP2-dockerfile/go-app
+            dockerfile: TP2-dockerfile/go-app/Dockerfile
+          - name: nginx-custom
+            context: TP2-dockerfile/nginx-custom
+            dockerfile: TP2-dockerfile/nginx-custom/Dockerfile
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image with Podman
+        run: |
+          podman build -t ${{ matrix.image.name }}:test -f ${{ matrix.image.dockerfile }} ${{ matrix.image.context }}
+
+      - name: Save image to tar
+        run: |
+          podman save -o /tmp/${{ matrix.image.name }}.tar ${{ matrix.image.name }}:test
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/${{ matrix.image.name }}.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-results-${{ matrix.image.name }}.txt'
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-tp2-${{ matrix.image.name }}
+          path: trivy-results-${{ matrix.image.name }}.txt
+
+  scan-tp3-images:
+    name: Scan TP3 Compose Images
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tp3 == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build TP3 webapp image
+        run: |
+          podman build -t tp3-webapp:test -f TP3-compose/webapp-db/app/Dockerfile TP3-compose/webapp-db/app
+
+      - name: Save image to tar
+        run: |
+          podman save -o /tmp/tp3-webapp.tar tp3-webapp:test
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/tp3-webapp.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-results-tp3-webapp.txt'
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-tp3-webapp
+          path: trivy-results-tp3-webapp.txt
+
+  scan-tp6-images:
+    name: Scan TP6 Project Images
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tp6 == 'true'
+    strategy:
+      matrix:
+        image:
+          - name: backend
+            context: TP6-projet-complet/app/backend
+            dockerfile: TP6-projet-complet/app/backend/Dockerfile
+          - name: frontend
+            context: TP6-projet-complet/app/frontend
+            dockerfile: TP6-projet-complet/app/frontend/Dockerfile
+          - name: nginx
+            context: TP6-projet-complet/nginx
+            dockerfile: TP6-projet-complet/nginx/Dockerfile
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image with Podman
+        run: |
+          podman build -t tp6-${{ matrix.image.name }}:test -f ${{ matrix.image.dockerfile }} ${{ matrix.image.context }}
+
+      - name: Save image to tar
+        run: |
+          podman save -o /tmp/tp6-${{ matrix.image.name }}.tar tp6-${{ matrix.image.name }}:test
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/tp6-${{ matrix.image.name }}.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-results-tp6-${{ matrix.image.name }}.txt'
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-tp6-${{ matrix.image.name }}
+          path: trivy-results-tp6-${{ matrix.image.name }}.txt
+
+  scan-tp5a-images:
+    name: Scan TP5A Security Examples
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tp5a == 'true'
+    strategy:
+      matrix:
+        image:
+          - name: secure
+            dockerfile: TP5A-securite/exemples/Dockerfile-secure
+          - name: secrets
+            dockerfile: TP5A-securite/exemples/Dockerfile-secrets
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image with Podman
+        run: |
+          podman build -t tp5a-${{ matrix.image.name }}:test -f ${{ matrix.image.dockerfile }} TP5A-securite/exemples
+
+      - name: Save image to tar
+        run: |
+          podman save -o /tmp/tp5a-${{ matrix.image.name }}.tar tp5a-${{ matrix.image.name }}:test
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          input: /tmp/tp5a-${{ matrix.image.name }}.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-results-tp5a-${{ matrix.image.name }}.txt'
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-tp5a-${{ matrix.image.name }}
+          path: trivy-results-tp5a-${{ matrix.image.name }}.txt
