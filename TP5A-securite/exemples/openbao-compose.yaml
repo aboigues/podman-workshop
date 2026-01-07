@@ -1,0 +1,124 @@
+version: '3.8'
+
+# Architecture complète avec OpenBao pour la gestion des secrets
+# OpenBao : gestionnaire de secrets open-source (fork de Vault)
+# Compatible avec l'API HashiCorp Vault
+
+services:
+  # OpenBao - Gestionnaire de secrets
+  openbao:
+    image: quay.io/openbao/openbao:2.0.0
+    container_name: openbao-server
+    hostname: openbao
+    ports:
+      - "8200:8200"
+    environment:
+      # Mode développement (UNIQUEMENT pour tests locaux!)
+      # En production, utiliser un fichier de config avec backend persistant
+      - BAO_DEV_ROOT_TOKEN_ID=dev-root-token-change-me
+      - BAO_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+      - BAO_LOG_LEVEL=info
+    cap_add:
+      # IPC_LOCK nécessaire pour mlock() - empêche swap des secrets
+      - IPC_LOCK
+    security_opt:
+      - no-new-privileges:true
+    # En production, utiliser un volume pour la persistance
+    # volumes:
+    #   - openbao_data:/openbao/data
+    #   - openbao_config:/openbao/config:ro
+    command: server -dev -dev-root-token-id=dev-root-token-change-me
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8200/v1/sys/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Application exemple qui récupère les secrets depuis OpenBao
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile-openbao-app
+    container_name: secure-app-openbao
+    depends_on:
+      openbao:
+        condition: service_healthy
+    environment:
+      # Configuration OpenBao
+      - BAO_ADDR=http://openbao:8200
+      - BAO_TOKEN=dev-root-token-change-me
+      # Pas de secrets en dur!
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=appdb
+    user: "1001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+      - /run
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+
+  # PostgreSQL - Les credentials sont dans OpenBao
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-with-openbao
+    environment:
+      # En production, l'app récupérerait ces valeurs depuis OpenBao
+      # et les injecterait via script d'initialisation
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD=temporary_password_see_openbao
+      - POSTGRES_DB=appdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:Z
+      - ./init-db-from-openbao.sh:/docker-entrypoint-initdb.d/10-openbao.sh:ro
+    user: postgres
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+
+  # Service d'initialisation OpenBao
+  # Configure les secrets au démarrage
+  openbao-init:
+    image: quay.io/openbao/openbao:2.0.0
+    container_name: openbao-initializer
+    depends_on:
+      openbao:
+        condition: service_healthy
+    environment:
+      - BAO_ADDR=http://openbao:8200
+      - BAO_TOKEN=dev-root-token-change-me
+    volumes:
+      - ./init-openbao.sh:/init-openbao.sh:ro
+    command: /bin/sh /init-openbao.sh
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+  # openbao_data:
+  #   driver: local
+  # openbao_config:
+  #   driver: local
+
+networks:
+  default:
+    driver: bridge
