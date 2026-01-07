@@ -767,6 +767,8 @@ podman-compose up -d
 
 ##### A. HashiCorp Vault
 
+**Solution propriétaire (BSL 1.1 depuis v1.14)** - Puissante mais licence restrictive
+
 ```bash
 # Installation du client Vault
 curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
@@ -807,7 +809,156 @@ secret = client.secrets.kv.v2.read_secret_version(
 db_password = secret['data']['data']['password']
 ```
 
-##### B. AWS Secrets Manager
+##### B. OpenBao (⭐ Recommandé - 100% Open Source)
+
+**Alternative open-source à Vault** - Fork maintenu par la Linux Foundation (MPL 2.0)
+
+OpenBao est un fork communautaire de Vault créé après le changement de licence de HashiCorp. **Compatible API** avec Vault, migration facile.
+
+**Installation :**
+
+```bash
+# Via binaire (Linux)
+curl -fsSL https://github.com/openbao/openbao/releases/download/v2.0.0/bao_2.0.0_linux_amd64.zip -o bao.zip
+unzip bao.zip
+sudo mv bao /usr/local/bin/
+chmod +x /usr/local/bin/bao
+
+# Vérifier l'installation
+bao version
+```
+
+**Lancement rapide avec Podman (mode dev) :**
+
+```bash
+# Lancer OpenBao en mode développement
+podman run -d \
+  --name openbao-dev \
+  -p 8200:8200 \
+  -e BAO_DEV_ROOT_TOKEN_ID=dev-token-123 \
+  --cap-add IPC_LOCK \
+  quay.io/openbao/openbao:latest server -dev
+
+# Configurer le client
+export BAO_ADDR='http://localhost:8200'
+export BAO_TOKEN='dev-token-123'
+
+# Vérifier le statut
+bao status
+```
+
+**Utilisation des secrets :**
+
+```bash
+# Activer le moteur KV v2
+bao secrets enable -version=2 kv
+
+# Créer des secrets
+bao kv put kv/myapp/db password="super_secure_password" username="dbuser"
+bao kv put kv/myapp/api key="api_secret_xyz_789"
+
+# Lire un secret
+bao kv get kv/myapp/db
+
+# Récupérer une valeur spécifique
+DB_PASSWORD=$(bao kv get -field=password kv/myapp/db)
+
+# Injecter dans Podman Secrets
+echo "$DB_PASSWORD" | podman secret create db_password -
+podman run --secret db_password myapp
+```
+
+**Application avec OpenBao (Python) :**
+
+```python
+# Python avec hvac (compatible OpenBao)
+import hvac
+import os
+
+# OpenBao utilise la même API que Vault
+client = hvac.Client(
+    url=os.getenv('BAO_ADDR', 'http://localhost:8200'),
+    token=os.getenv('BAO_TOKEN')
+)
+
+# Vérifier que le client est authentifié
+if not client.is_authenticated():
+    raise Exception("Authentication failed")
+
+# Récupérer un secret (KV v2)
+secret_response = client.secrets.kv.v2.read_secret_version(
+    path='myapp/db',
+    mount_point='kv'
+)
+
+db_password = secret_response['data']['data']['password']
+db_username = secret_response['data']['data']['username']
+
+print(f"Connecté à la DB avec l'utilisateur: {db_username}")
+```
+
+**Déploiement production avec Podman Compose :**
+
+Voir `exemples/openbao-compose.yaml` pour un exemple complet.
+
+**Rotation automatique des secrets :**
+
+```bash
+# Générer une nouvelle version du secret
+NEW_PASSWORD=$(openssl rand -base64 32)
+bao kv put kv/myapp/db password="$NEW_PASSWORD" username="dbuser"
+
+# OpenBao garde l'historique (versioning)
+bao kv get -version=1 kv/myapp/db  # Ancienne version
+bao kv get -version=2 kv/myapp/db  # Nouvelle version
+
+# Mettre à jour le secret Podman
+echo "$NEW_PASSWORD" | podman secret create db_password_v2 -
+
+# Redéployer avec le nouveau secret
+podman run --secret db_password_v2,target=/run/secrets/db_password myapp
+```
+
+**Politiques d'accès (policies) :**
+
+```bash
+# Créer une politique pour l'application
+cat > myapp-policy.hcl <<EOF
+path "kv/data/myapp/*" {
+  capabilities = ["read"]
+}
+EOF
+
+bao policy write myapp-readonly myapp-policy.hcl
+
+# Créer un token avec cette politique
+bao token create -policy=myapp-readonly
+
+# L'application ne peut que lire, pas modifier
+```
+
+**Avantages d'OpenBao :**
+- ✅ **100% Open Source** (MPL 2.0) - Pas de restrictions de licence
+- ✅ **Compatible API Vault** - Migration facile
+- ✅ **Gouvernance communautaire** (Linux Foundation)
+- ✅ **Gratuit** pour tous les cas d'usage
+- ✅ Chiffrement, rotation, audit trail complet
+- ✅ Haute disponibilité (clustering)
+- ✅ Intégration cloud (AWS, Azure, GCP)
+- ✅ Support multi-backend (Consul, PostgreSQL, etc.)
+
+**Comparaison Vault vs OpenBao :**
+
+| Critère | HashiCorp Vault | OpenBao |
+|---------|-----------------|---------|
+| Licence | BSL 1.1 (restrictive) | MPL 2.0 (permissive) |
+| Coût | Gratuit / Entreprise payant | Gratuit |
+| Gouvernance | HashiCorp | Linux Foundation |
+| Compatibilité API | Originale | Compatible Vault |
+| Développement | HashiCorp seul | Communauté |
+| Support commercial | ✅ Officiel | ⚠️ Tiers uniquement |
+
+##### C. AWS Secrets Manager
 
 ```bash
 # Installation AWS CLI
@@ -828,7 +979,7 @@ aws secretsmanager get-secret-value \
   --output text | podman secret create db_password -
 ```
 
-##### C. Azure Key Vault
+##### D. Azure Key Vault
 
 ```bash
 # Installation Azure CLI
@@ -850,7 +1001,7 @@ az keyvault secret show \
   --query value -o tsv | podman secret create db_password -
 ```
 
-##### D. Google Cloud Secret Manager
+##### E. Google Cloud Secret Manager
 
 ```bash
 # Installation gcloud
@@ -891,21 +1042,30 @@ gcloud secrets versions access latest \
 ### 🎯 Recommandations par cas d'usage
 
 **Développement local :**
-- ✅ Podman Secrets
+- ✅ Podman Secrets (simple et efficace)
+- ✅ OpenBao en mode dev (pour tester la prod)
 - ⚠️ Volumes montés (acceptable)
 
 **Tests / Staging :**
 - ✅ Podman Secrets
-- ✅ Vault (si disponible)
+- ✅ **OpenBao** (open-source, recommandé)
+- ✅ Vault (si licence acceptable)
 
 **Production :**
+- ✅ **OpenBao** (MPL 2.0 - 100% open source, recommandé)
 - ✅ Vault / AWS / Azure / GCP
 - ✅ Podman Secrets (acceptable pour petites applications)
 
+**Production avec contraintes de licence :**
+- ✅ **OpenBao** (MPL 2.0 - permissive)
+- ⚠️ Vault (BSL 1.1 - restrictions d'usage commercial)
+
 **Applications critiques (banque, santé) :**
-- ✅ UNIQUEMENT gestionnaires externes (Vault, Cloud)
+- ✅ UNIQUEMENT gestionnaires externes (OpenBao, Vault, Cloud)
 - ✅ Avec HSM (Hardware Security Module)
 - ✅ Rotation automatique obligatoire
+- ✅ Audit trail complet
+- ✅ Haute disponibilité (clustering)
 
 ---
 

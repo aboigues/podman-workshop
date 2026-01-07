@@ -227,9 +227,70 @@ api_key = read_secret('api_key')
 
 ---
 
+### 4. Avec OpenBao (gestionnaire externe open-source)
+
+OpenBao est un fork 100% open-source de HashiCorp Vault, maintenu par la Linux Foundation.
+
+```bash
+# Lancer la démonstration complète
+cd ../scripts
+chmod +x demo-openbao.sh
+./demo-openbao.sh
+```
+
+**Ou manuellement :**
+
+```bash
+# Lancer OpenBao en mode dev
+podman run -d \
+  --name openbao-dev \
+  -p 8200:8200 \
+  -e BAO_DEV_ROOT_TOKEN_ID=dev-token \
+  --cap-add IPC_LOCK \
+  quay.io/openbao/openbao:latest server -dev
+
+# Configurer le client
+export BAO_ADDR='http://localhost:8200'
+export BAO_TOKEN='dev-token'
+
+# Créer des secrets
+podman exec openbao-dev bao secrets enable -version=2 kv
+podman exec -e BAO_ADDR -e BAO_TOKEN openbao-dev \
+  bao kv put kv/myapp/db password="secure_pass" username="dbuser"
+
+# Récupérer et injecter dans Podman
+PASSWORD=$(podman exec -e BAO_ADDR -e BAO_TOKEN openbao-dev \
+  bao kv get -field=password kv/myapp/db)
+echo "$PASSWORD" | podman secret create db_password -
+
+# Lancer l'application
+podman run --secret db_password myapp
+```
+
+**Architecture complète avec Compose :**
+
+```bash
+# Voir openbao-compose.yaml pour un exemple complet
+podman-compose -f openbao-compose.yaml up -d
+```
+
+**Avantages d'OpenBao :**
+- ✅ 100% Open Source (MPL 2.0)
+- ✅ Compatible API Vault (migration facile)
+- ✅ Gouvernance communautaire (Linux Foundation)
+- ✅ Rotation automatique des secrets
+- ✅ Versioning et audit trail
+- ✅ Politiques d'accès granulaires
+- ✅ Gratuit pour tous les cas d'usage
+
+---
+
 ## 📚 Ressources
 
 - [Documentation Podman Secrets](https://docs.podman.io/en/latest/markdown/podman-secret.1.html)
+- [OpenBao Official Site](https://openbao.org/)
+- [OpenBao Documentation](https://openbao.org/docs/)
+- [OpenBao GitHub](https://github.com/openbao/openbao)
 - [Bonnes pratiques sécurité conteneurs](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
 - [Seccomp profiles](https://docs.docker.com/engine/security/seccomp/)
 - [Guide principal TP5A](../README.md)
