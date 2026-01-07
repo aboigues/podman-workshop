@@ -516,7 +516,9 @@ CMD ["/app"]
 
 ## Images durcies (Hardened Images)
 
-### Qu'est-ce qu'une image durcie ?
+### Qu'est-ce qu'une DHI (Docker Hardened Image) ?
+
+**DHI (Docker Hardened Image)** est le terme générique pour désigner une image de conteneur spécialement conçue et configurée pour offrir un niveau de sécurité maximal. Ces images sont également appelées **images durcies** ou **hardened images**.
 
 Une **image durcie (hardened image)** est une image de conteneur spécialement conçue et configurée pour offrir un niveau de sécurité maximal :
 
