@@ -3,6 +3,7 @@
 ![ShellCheck](https://github.com/aboigues/podman-workshop/workflows/ShellCheck/badge.svg)
 ![Test Podman Workshop](https://github.com/aboigues/podman-workshop/workflows/Test%20Podman%20Workshop/badge.svg)
 ![Markdown Lint](https://github.com/aboigues/podman-workshop/workflows/Markdown%20Lint/badge.svg)
+![Deprecation Check](https://github.com/aboigues/podman-workshop/workflows/Deprecation%20Check/badge.svg)
 
 Formation complete et pratique sur Podman : de la conteneurisation de base au deploiement sur AWS.
 
