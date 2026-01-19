@@ -1,0 +1,190 @@
+name: Deprecation Check
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.sh'
+      - '**/*.md'
+      - '**/Dockerfile*'
+      - '**/*compose*.yml'
+      - '**/*compose*.yaml'
+      - '.deprecationignore'
+      - 'scripts/deprecation/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/*.sh'
+      - '**/*.md'
+      - '**/Dockerfile*'
+      - '**/*compose*.yml'
+      - '**/*compose*.yaml'
+      - '.deprecationignore'
+      - 'scripts/deprecation/**'
+  schedule:
+    # Execution hebdomadaire le lundi a 8h UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # Detection des fichiers modifies
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      scripts: ${{ steps.filter.outputs.scripts }}
+      dockerfiles: ${{ steps.filter.outputs.dockerfiles }}
+      compose: ${{ steps.filter.outputs.compose }}
+      any_change: ${{ steps.filter.outputs.any_change }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            scripts:
+              - '**/*.sh'
+              - '**/*.md'
+            dockerfiles:
+              - '**/Dockerfile*'
+              - '**/*.dockerfile'
+            compose:
+              - '**/*compose*.yml'
+              - '**/*compose*.yaml'
+            any_change:
+              - '**/*.sh'
+              - '**/*.md'
+              - '**/Dockerfile*'
+              - '**/*compose*.yml'
+              - '**/*compose*.yaml'
+
+  # Verification des commandes Podman depreciees
+  check-commands:
+    name: Check Deprecated Commands
+    runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.scripts == 'true'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run deprecated commands check
+        run: |
+          chmod +x scripts/deprecation/check-deprecated-commands.sh
+          bash scripts/deprecation/check-deprecated-commands.sh --github
+
+  # Verification des versions d'images dans les Dockerfiles
+  check-images:
+    name: Check Dockerfile Images (via endoflife.date)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.dockerfiles == 'true'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Run Dockerfile images check
+        run: |
+          chmod +x scripts/deprecation/check-dockerfile-images.sh
+          bash scripts/deprecation/check-dockerfile-images.sh --github
+
+  # Verification de la syntaxe Compose depreciee
+  check-compose:
+    name: Check Compose Syntax
+    runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.compose == 'true'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Compose syntax check
+        run: |
+          chmod +x scripts/deprecation/check-compose-syntax.sh
+          bash scripts/deprecation/check-compose-syntax.sh --github
+
+  # Resume des resultats
+  summary:
+    name: Deprecation Summary
+    runs-on: ubuntu-latest
+    needs: [changes, check-commands, check-images, check-compose]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Summary
+        run: |
+          echo "# Rapport de Detection des Deprecations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Declencheur:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Statut des Verifications" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Verification | Statut |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Status des jobs
+          if [[ "${{ needs.check-commands.result }}" == "success" ]]; then
+            echo "| Commandes Podman | :white_check_mark: Succes |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.check-commands.result }}" == "skipped" ]]; then
+            echo "| Commandes Podman | :next_track_button: Ignore |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Commandes Podman | :warning: Avertissements |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ needs.check-images.result }}" == "success" ]]; then
+            echo "| Images Dockerfile | :white_check_mark: Succes |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.check-images.result }}" == "skipped" ]]; then
+            echo "| Images Dockerfile | :next_track_button: Ignore |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Images Dockerfile | :warning: Avertissements |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ needs.check-compose.result }}" == "success" ]]; then
+            echo "| Syntaxe Compose | :white_check_mark: Succes |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.check-compose.result }}" == "skipped" ]]; then
+            echo "| Syntaxe Compose | :next_track_button: Ignore |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Syntaxe Compose | :warning: Avertissements |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Sources de Donnees" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Images Dockerfile**: [endoflife.date](https://endoflife.date) (API externe)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commandes Podman**: Liste maintenue manuellement" >> $GITHUB_STEP_SUMMARY
+          echo "- **Syntaxe Compose**: [Docker Compose Spec](https://github.com/compose-spec/compose-spec)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** Ce workflow est configure en mode non-bloquant." >> $GITHUB_STEP_SUMMARY
+          echo "> Les avertissements sont informatifs et n'empechent pas le merge." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Pour gerer les exceptions, editez le fichier \`.deprecationignore\`." >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,38 @@
+# .deprecationignore
+# Exceptions pour la detection des deprecations dans le workshop Podman
+#
+# Formats supportes:
+#   IGNORE:pattern:glob           - Ignorer une commande Podman
+#   IGNORE_IMAGE:image:version:glob  - Ignorer une version d'image
+#   IGNORE_COMPOSE:syntax:glob    - Ignorer une syntaxe Compose
+#
+# Les globs supportent * et ** pour les wildcards
+# Exemples:
+#   IGNORE:podman generate systemd:TP4-*/*
+#   IGNORE_IMAGE:python:3.9:TP2-dockerfile/*
+#   IGNORE_COMPOSE:version:TP3-compose/*
+
+# =============================================================================
+# COMMANDES PODMAN DEPRECIEES
+# =============================================================================
+
+# TP4 enseigne intentionnellement 'podman generate systemd' pour le contexte
+# historique avant d'introduire Quadlet. Cela aide les apprenants a comprendre
+# l'evolution des outils.
+# IGNORE:podman generate systemd:TP4-*/exercices/*
+
+# =============================================================================
+# VERSIONS D'IMAGES
+# =============================================================================
+
+# Les exercices peuvent utiliser des versions specifiques pour la coherence
+# pedagogique ou pour demonstrer la migration de versions
+# IGNORE_IMAGE:python:3.9:TP2-dockerfile/exercices/*
+
+# =============================================================================
+# SYNTAXE COMPOSE
+# =============================================================================
+
+# Certains fichiers d'exemple peuvent conserver la directive 'version' pour
+# montrer la difference entre l'ancienne et la nouvelle syntaxe
+# IGNORE_COMPOSE:version:docs/examples/*

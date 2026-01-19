@@ -32,3 +32,6 @@ venv/
 # AWS
 instance-info.txt
 aws-credentials.txt
+
+# Deprecation check cache
+scripts/deprecation/.cache/
