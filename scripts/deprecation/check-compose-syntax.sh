@@ -19,7 +19,6 @@ IGNORE_FILE="${PROJECT_ROOT}/.deprecationignore"
 
 # Compteurs
 WARNINGS=0
-ERRORS=0
 IGNORED=0
 
 # Syntaxes Compose depreciees avec leurs remplacements

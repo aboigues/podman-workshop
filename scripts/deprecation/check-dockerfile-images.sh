@@ -22,7 +22,6 @@ CACHE_TTL=3600  # Cache valide pendant 1 heure
 
 # Compteurs
 WARNINGS=0
-ERRORS=0
 IGNORED=0
 
 # Mapping des noms d'images vers les produits endoflife.date
