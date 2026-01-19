@@ -1,0 +1,25 @@
+# Exemple de fichier Quadlet .pod
+# Emplacement: ~/.config/containers/systemd/webapp.pod
+#
+# Un pod regroupe plusieurs conteneurs partageant:
+# - Le namespace réseau (communiquent via localhost)
+# - Les ports exposés
+# - Le cycle de vie
+#
+# Pour activer:
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now webapp-pod
+
+[Pod]
+# Nom du pod Podman
+PodName=webapp
+
+# Ports exposés au niveau du pod
+PublishPort=8080:80
+PublishPort=6379:6379
+
+# Options réseau (optionnel)
+# Network=backend.network
+
+[Install]
+WantedBy=default.target

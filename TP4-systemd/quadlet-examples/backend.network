@@ -1,0 +1,22 @@
+# Exemple de fichier Quadlet .network
+# Emplacement: ~/.config/containers/systemd/backend.network
+#
+# Crée un réseau personnalisé pour isoler les conteneurs
+#
+# Pour utiliser dans un .container:
+#   Network=backend.network
+
+[Network]
+# Sous-réseau personnalisé
+Subnet=10.89.0.0/24
+Gateway=10.89.0.1
+
+# Options avancées (optionnel)
+# Driver=bridge
+# DisableDNS=false
+# Internal=false
+# IPRange=10.89.0.128/25
+
+# Labels
+Label=project=myapp
+Label=environment=development

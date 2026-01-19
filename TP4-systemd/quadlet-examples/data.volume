@@ -1,0 +1,21 @@
+# Exemple de fichier Quadlet .volume
+# Emplacement: ~/.config/containers/systemd/data.volume
+#
+# Crée un volume nommé géré par Podman
+#
+# Pour utiliser dans un .container:
+#   Volume=data.volume:/chemin/dans/conteneur:Z
+
+[Volume]
+# Options du driver (optionnel)
+# Driver=local
+
+# Labels
+Label=project=myapp
+Label=backup=daily
+
+# Options avancées (optionnel)
+# Copy=true
+# Device=/dev/sdb1
+# Type=ext4
+# Options=nodev,noexec
