@@ -1,0 +1,40 @@
+# Exemple de fichier Quadlet .container avec base de données
+# Emplacement: ~/.config/containers/systemd/database.container
+#
+# IMPORTANT: Créer le fichier d'environnement avant:
+#   mkdir -p ~/.config/containers
+#   echo "POSTGRES_PASSWORD=secret" > ~/.config/containers/db.env
+#   echo "POSTGRES_USER=app" >> ~/.config/containers/db.env
+#   echo "POSTGRES_DB=myapp" >> ~/.config/containers/db.env
+#   chmod 600 ~/.config/containers/db.env
+
+[Unit]
+Description=PostgreSQL Database
+Documentation=https://www.postgresql.org/docs/
+After=network-online.target
+
+[Container]
+ContainerName=database
+Image=docker.io/library/postgres:15-alpine
+
+# Variables d'environnement via fichier (sécurisé)
+# Ne jamais mettre les secrets directement ici!
+EnvironmentFile=%h/.config/containers/db.env
+
+# Volume persistant pour les données
+Volume=db-data:/var/lib/postgresql/data:Z
+
+# Healthcheck
+HealthCmd=pg_isready -U postgres
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=30s
+HealthTimeout=10s
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

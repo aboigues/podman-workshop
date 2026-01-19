@@ -1,0 +1,53 @@
+# Exemple de fichier Quadlet .container sécurisé
+# Emplacement: ~/.config/containers/systemd/secure-app.container
+#
+# Démontre les meilleures pratiques de sécurité
+
+[Unit]
+Description=Secure Application Container
+After=network-online.target
+
+[Container]
+ContainerName=secure-app
+Image=docker.io/library/nginx:alpine
+PublishPort=8443:80
+
+# === SECURITE ===
+
+# Système de fichiers en lecture seule
+ReadOnly=true
+
+# Exécute un init (gestion correcte des signaux)
+RunInit=true
+
+# Retirer toutes les capabilities puis ajouter uniquement celles nécessaires
+DropCapability=ALL
+AddCapability=NET_BIND_SERVICE
+AddCapability=CHOWN
+AddCapability=SETGID
+AddCapability=SETUID
+
+# Utilisateur non-root dans le conteneur
+User=101
+Group=101
+
+# Tmpfs pour les répertoires nécessitant l'écriture
+PodmanArgs=--tmpfs /tmp:rw,noexec,nosuid --tmpfs /var/cache/nginx:rw --tmpfs /var/run:rw
+
+# Pas de nouvelles capabilities
+PodmanArgs=--no-new-privileges
+
+# Limites de ressources
+PodmanArgs=--memory=256m --cpus=0.5 --pids-limit=50
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+# Limites systemd additionnelles
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=50
+
+[Install]
+WantedBy=default.target

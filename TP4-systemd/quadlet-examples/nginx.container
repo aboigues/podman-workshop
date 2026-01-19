@@ -1,0 +1,44 @@
+# Exemple de fichier Quadlet .container
+# Emplacement: ~/.config/containers/systemd/nginx.container
+#
+# Pour activer:
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now nginx
+
+[Unit]
+Description=Nginx Web Server
+Documentation=https://nginx.org/en/docs/
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# Nom du conteneur Podman
+ContainerName=nginx
+
+# Image (chemin complet recommandé)
+Image=docker.io/library/nginx:alpine
+
+# Publication de port
+PublishPort=8080:80
+
+# Volume (optionnel)
+# Volume=%h/www:/usr/share/nginx/html:ro,Z
+
+# Labels
+Label=app=webserver
+Label=environment=production
+
+[Service]
+# Politique de redémarrage
+Restart=on-failure
+RestartSec=10
+
+# Timeouts
+TimeoutStartSec=90
+TimeoutStopSec=30
+
+[Install]
+# Pour mode utilisateur
+WantedBy=default.target
+# Pour mode système (root), utiliser:
+# WantedBy=multi-user.target
