@@ -1,0 +1,38 @@
+# Prometheus Monitoring pour TaskPlatform
+
+[Unit]
+Description=TaskPlatform Prometheus Monitoring
+After=network-online.target
+
+[Container]
+ContainerName=taskplatform-prometheus
+Image=docker.io/prom/prometheus:latest
+
+# Configuration Prometheus
+Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles
+
+# Port exposé
+PublishPort=9090:9090
+
+# Volumes
+Volume=%h/taskplatform/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+Volume=prometheus-data.volume:/prometheus:Z
+
+# Réseau monitoring
+Network=taskplatform-monitoring.network
+
+# Healthcheck
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+# Limites de ressources
+PodmanArgs=--memory=512m --cpus=0.5
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

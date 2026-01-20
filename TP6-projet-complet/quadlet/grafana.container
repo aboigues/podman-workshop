@@ -1,0 +1,43 @@
+# Grafana Dashboards pour TaskPlatform
+
+[Unit]
+Description=TaskPlatform Grafana Dashboards
+After=prometheus.service
+Wants=prometheus.service
+
+[Container]
+ContainerName=taskplatform-grafana
+Image=docker.io/grafana/grafana:latest
+
+# Configuration via fichier d'environnement
+EnvironmentFile=%h/.config/containers/taskplatform.env
+
+# Variables Grafana
+Environment=GF_INSTALL_PLUGINS=grafana-piechart-panel
+
+# Port exposé
+PublishPort=3001:3000
+
+# Volumes
+Volume=grafana-data.volume:/var/lib/grafana:Z
+Volume=%h/taskplatform/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+Volume=%h/taskplatform/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+
+# Réseau monitoring
+Network=taskplatform-monitoring.network
+
+# Healthcheck
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+# Limites de ressources
+PodmanArgs=--memory=512m --cpus=0.5
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

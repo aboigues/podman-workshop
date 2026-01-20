@@ -1,0 +1,38 @@
+# Redis Cache pour TaskPlatform
+# Service de cache et sessions
+
+[Unit]
+Description=TaskPlatform Redis Cache
+After=network-online.target
+
+[Container]
+ContainerName=taskplatform-redis
+Image=docker.io/library/redis:7-alpine
+
+# Commande avec persistence et mot de passe
+Exec=redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+
+# Configuration via fichier d'environnement
+EnvironmentFile=%h/.config/containers/taskplatform.env
+
+# Volume persistant
+Volume=redis-data.volume:/data:Z
+
+# Réseau
+Network=taskplatform-backend.network
+
+# Healthcheck
+HealthCmd=redis-cli --raw incr ping
+HealthInterval=10s
+HealthTimeout=3s
+HealthRetries=5
+
+# Limites de ressources
+PodmanArgs=--memory=512m --cpus=0.5
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

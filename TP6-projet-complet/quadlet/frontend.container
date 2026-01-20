@@ -1,0 +1,30 @@
+# Frontend React pour TaskPlatform
+# Nécessite de construire l'image au préalable:
+# podman build -t localhost/taskplatform-frontend:latest ./app/frontend
+
+[Unit]
+Description=TaskPlatform Frontend React
+After=network-online.target
+
+[Container]
+ContainerName=taskplatform-frontend
+Image=localhost/taskplatform-frontend:latest
+
+# Réseau frontend
+Network=taskplatform-frontend.network
+
+# Healthcheck
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+# Limites de ressources
+PodmanArgs=--memory=256m --cpus=0.5
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
