@@ -16,6 +16,25 @@
 - Connaissances de base sur Linux et les conteneurs
 - Outils de scan (Trivy) - optionnel
 
+## Note pour les utilisateurs WSL
+
+> **Bonne nouvelle** : Ce TP est **entièrement compatible avec WSL2** !
+
+La plupart des fonctionnalités de sécurité fonctionnent parfaitement sous WSL :
+
+| Fonctionnalité | WSL | Notes |
+|----------------|-----|-------|
+| Mode rootless | ✅ | Fonctionne parfaitement |
+| Capabilities | ✅ | drop/add supportés |
+| Podman Secrets | ✅ | Fonctionne parfaitement |
+| Profils seccomp | ✅ | Fonctionnent |
+| Images durcies | ✅ | Toutes les options disponibles |
+| Trivy (scan) | ✅ | Fonctionne |
+| SELinux | ❌ | Non disponible (kernel WSL) |
+| AppArmor | ❌ | Non disponible (kernel WSL) |
+
+**Impact pratique** : Les labels SELinux (`:Z`, `:z`) dans les volumes sont ignorés silencieusement - pas d'erreur, mais pas de protection SELinux non plus. Les sections sur SELinux et AppArmor de ce TP sont à considérer comme documentation pour environnements Linux natifs.
+
 ## Démarrage rapide
 
 ```bash
