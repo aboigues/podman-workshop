@@ -149,9 +149,37 @@ aws ec2 authorize-security-group-ingress \
   --cidr 0.0.0.0/0
 ```
 
-### Étape 3 : Lancer une instance EC2
+### Étape 3 : Lancer l'instance (méthode automatique recommandée)
+
+Le script `deploy-ec2.sh` automatise tout le processus :
 
 ```bash
+cd scripts/
+
+# Lancer le déploiement
+./deploy-ec2.sh
+
+# Ou avec des options personnalisées
+AWS_REGION=eu-west-1 KEY_NAME=ma-cle ./deploy-ec2.sh
+
+# Mode simulation (sans créer l'instance)
+./deploy-ec2.sh --dry-run
+```
+
+Le script va :
+1. Trouver la dernière AMI Amazon Linux 2023
+2. Vérifier/créer le Security Group
+3. Lancer l'instance avec le user-data
+4. Afficher les commandes de connexion
+
+### Étape 3 alternative : Lancer manuellement
+
+Si vous préférez lancer l'instance manuellement :
+
+```bash
+# Se placer dans le répertoire scripts (contient user-data.sh)
+cd scripts/
+
 # Trouver l'AMI Amazon Linux 2023 la plus récente
 AMI_ID=$(aws ec2 describe-images \
   --owners amazon \
@@ -159,7 +187,7 @@ AMI_ID=$(aws ec2 describe-images \
   --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
   --output text)
 
-# Lancer l'instance
+# Lancer l'instance avec le user-data fourni
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID \
   --instance-type t3.micro \
@@ -183,34 +211,26 @@ PUBLIC_IP=$(aws ec2 describe-instances \
 echo "IP publique : $PUBLIC_IP"
 ```
 
-### Étape 4 : Script User Data
+### Étape 4 : Comprendre le User Data
 
-Créer `user-data.sh` :
+Le fichier `scripts/user-data.sh` est exécuté automatiquement par cloud-init au premier démarrage. Il :
+
+- Met à jour le système avec `dnf`
+- Installe Podman, podman-compose et git
+- Active le socket Podman
+- Crée un script de test `/home/ec2-user/test-podman.sh`
+- Log l'installation dans `/var/log/user-data.log`
+
+> **Note** : Attendez 2-3 minutes après le démarrage de l'instance pour que cloud-init termine.
+
+Pour vérifier que cloud-init a terminé :
 
 ```bash
-#!/bin/bash
-set -e
+# Voir les logs cloud-init
+ssh -i ~/.ssh/podman-workshop-key.pem ec2-user@$PUBLIC_IP 'sudo cat /var/log/user-data.log'
 
-# Mettre à jour le système
-dnf update -y
-
-# Installer Podman
-dnf install -y podman podman-compose git
-
-# Configurer pour l'utilisateur ec2-user
-systemctl enable --now podman.socket
-
-# Créer un conteneur de test
-cat > /home/ec2-user/test-podman.sh << 'EOF'
-#!/bin/bash
-podman run -d --name nginx-test -p 80:80 nginx:alpine
-EOF
-
-chmod +x /home/ec2-user/test-podman.sh
-chown ec2-user:ec2-user /home/ec2-user/test-podman.sh
-
-# Log de fin
-echo "Installation terminée: $(date)" > /var/log/podman-setup.log
+# Vérifier le statut
+ssh -i ~/.ssh/podman-workshop-key.pem ec2-user@$PUBLIC_IP 'cloud-init status'
 ```
 
 ### Étape 5 : Se connecter et tester
