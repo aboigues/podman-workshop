@@ -14,6 +14,96 @@
 - Accès terminal
 - Connaissances de base sur systemd
 
+## Compatibilité WSL (Windows Subsystem for Linux)
+
+> **Important** : Si vous utilisez WSL, lisez cette section avant de commencer.
+
+### Configuration requise
+
+WSL2 supporte systemd depuis Windows 11 (build 22000+), mais il doit être **activé manuellement**.
+
+**Vérifier si systemd est actif :**
+
+```bash
+# Le PID 1 doit être systemd
+ps -p 1 -o comm=
+# Devrait afficher : systemd
+```
+
+**Activer systemd si nécessaire :**
+
+```bash
+# Créer ou éditer /etc/wsl.conf
+sudo tee /etc/wsl.conf << 'EOF'
+[boot]
+systemd=true
+EOF
+
+# Redémarrer WSL depuis PowerShell (Windows)
+# wsl --shutdown
+# Puis relancer votre distribution
+```
+
+### Limitations connues sous WSL
+
+| Fonctionnalité | Statut | Notes |
+|----------------|--------|-------|
+| Fichiers `.container` | ✅ Fonctionne | Exercices 1, 2, 4, 5 |
+| Fichiers `.network` | ✅ Fonctionne | Réseaux personnalisés |
+| Fichiers `.volume` | ✅ Fonctionne | Volumes nommés |
+| Spécificateur `%h` | ✅ Fonctionne | Chemin home dans volumes |
+| Option `:Z` (SELinux) | ✅ Ignorée | SELinux absent sous WSL |
+| Fichiers `.pod` | ❌ Bug Podman 4.9.x | [Issue #21371](https://github.com/containers/podman/issues/21371) |
+| `loginctl enable-linger` | ❌ Non supporté | Services s'arrêtent à la déconnexion |
+
+### Impact sur les exercices
+
+| Exercice | Compatible WSL | Solution de contournement |
+|----------|----------------|---------------------------|
+| Exercice 1 - Service simple | ✅ | - |
+| Exercice 2 - Volume persistant | ✅ | - |
+| Exercice 3 - Pod multi-conteneurs | ⚠️ Partiel | Voir alternative ci-dessous |
+| Exercice 4 - Réseau personnalisé | ✅ | - |
+| Exercice 5 - Auto-update | ✅ | Timer actif tant que WSL tourne |
+
+### Alternative pour l'exercice 3 (Pods) sous WSL
+
+Les fichiers `.pod` ne fonctionnent pas avec Podman 4.9.x. Utilisez cette approche manuelle :
+
+```bash
+# 1. Créer le pod manuellement
+podman pod create --name webapp-pod -p 8082:80
+
+# 2. Créer les conteneurs dans le pod
+podman run -d --pod webapp-pod --name webapp-web nginx:alpine
+podman run -d --pod webapp-pod --name webapp-redis redis:7-alpine
+
+# 3. Vérifier
+podman pod ps
+podman ps --pod
+
+# 4. Pour arrêter/démarrer
+podman pod stop webapp-pod
+podman pod start webapp-pod
+```
+
+> **Note** : Cette limitation sera corrigée dans Podman 5.x. Vérifiez votre version avec `podman --version`.
+
+### Persistance des services sous WSL
+
+Sans `linger`, les services s'arrêtent quand vous fermez le terminal WSL. Pour garder WSL actif en arrière-plan :
+
+**Option 1** : Garder une fenêtre WSL ouverte
+
+**Option 2** : Lancer WSL en arrière-plan depuis PowerShell :
+```powershell
+wsl -d Ubuntu -- sleep infinity &
+```
+
+**Option 3** : Utiliser Windows Task Scheduler pour lancer WSL au démarrage
+
+---
+
 ## Démarrage rapide avec Quadlet
 
 ```bash
@@ -1006,6 +1096,56 @@ rm ~/.config/containers/systemd/nom-service.container
 # Recharger
 systemctl --user daemon-reload
 systemctl --user reset-failed
+```
+
+### Problèmes spécifiques à WSL
+
+#### systemctl ne fonctionne pas du tout
+
+```bash
+# Vérifier si systemd est le PID 1
+ps -p 1 -o comm=
+
+# Si ce n'est pas "systemd", activer systemd dans WSL :
+sudo tee /etc/wsl.conf << 'EOF'
+[boot]
+systemd=true
+EOF
+
+# Puis redémarrer WSL depuis PowerShell :
+# wsl --shutdown
+```
+
+#### "Could not enable linger: No such device or address"
+
+C'est une limitation connue de WSL. `loginctl enable-linger` n'est pas supporté.
+
+**Solution** : Gardez WSL actif en arrière-plan (voir section "Compatibilité WSL" en début de document).
+
+#### "unsupported key 'Pod' in group 'Container'"
+
+Bug connu avec Podman 4.9.x ([Issue #21371](https://github.com/containers/podman/issues/21371)).
+
+**Solution** : Créez les pods manuellement avec `podman pod create` au lieu d'utiliser les fichiers `.pod`.
+
+#### Le fichier .pod n'est pas détecté par Quadlet
+
+```bash
+# Vérifier ce que Quadlet détecte
+/usr/libexec/podman/quadlet -dryrun -user
+
+# Si les fichiers .pod ne sont pas listés, c'est le bug Podman 4.9.x
+# Utilisez l'alternative manuelle (voir section "Compatibilité WSL")
+```
+
+#### Erreur "Error occurred resolving path" au daemon-reload
+
+```bash
+# Ce message est un avertissement, pas une erreur bloquante :
+# "Error occurred resolving path /etc/containers/systemd/users/XXXX"
+
+# Il indique simplement que le répertoire système n'existe pas.
+# Vos fichiers dans ~/.config/containers/systemd/ fonctionneront quand même.
 ```
 
 ---
