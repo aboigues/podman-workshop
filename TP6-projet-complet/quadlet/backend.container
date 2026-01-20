@@ -1,0 +1,45 @@
+# Backend API Node.js pour TaskPlatform
+# Nécessite de construire l'image au préalable:
+# podman build -t localhost/taskplatform-backend:latest ./app/backend
+
+[Unit]
+Description=TaskPlatform Backend API
+After=postgres.service redis.service
+Requires=postgres.service redis.service
+
+[Container]
+ContainerName=taskplatform-api
+Image=localhost/taskplatform-backend:latest
+
+# Configuration via fichier d'environnement
+EnvironmentFile=%h/.config/containers/taskplatform.env
+
+# Variables spécifiques au backend
+Environment=NODE_ENV=production
+Environment=DB_HOST=taskplatform-db
+Environment=DB_PORT=5432
+Environment=REDIS_HOST=taskplatform-redis
+Environment=REDIS_PORT=6379
+Environment=API_PORT=4000
+
+# Réseaux (backend + monitoring pour les métriques)
+Network=taskplatform-backend.network
+Network=taskplatform-monitoring.network
+
+# Healthcheck
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:4000/api/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=30s
+
+# Limites de ressources
+PodmanArgs=--memory=1g --cpus=1.0
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=60
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,7 @@
+# Volume pour les données Redis
+
+[Volume]
+VolumeName=taskplatform-redis-data
+
+[Install]
+WantedBy=default.target

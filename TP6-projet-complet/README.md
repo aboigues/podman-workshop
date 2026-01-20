@@ -118,8 +118,13 @@ TP6-projet-complet/
 │   ├── setup.sh                   # Setup initial
 │   ├── deploy.sh                  # Déploiement
 │   ├── backup.sh                  # Sauvegarde DB
-│   ├── restore.sh                 # Restauration DB
-│   └── generate-systemd.sh        # Génération services systemd
+│   └── restore.sh                 # Restauration DB
+├── quadlet/                       # Fichiers Quadlet (systemd)
+│   ├── *.container                # Définitions des conteneurs
+│   ├── *.network                  # Définitions des réseaux
+│   ├── *.volume                   # Définitions des volumes
+│   ├── deploy-quadlet.sh          # Script de déploiement
+│   └── README.md                  # Documentation Quadlet
 └── terraform/                     # Déploiement AWS (bonus)
     ├── main.tf
     ├── variables.tf
@@ -342,74 +347,133 @@ done
 
 ---
 
-## 📚 Exercice 3 : Automatisation Systemd (30 min)
+## 📚 Exercice 3 : Automatisation avec Quadlet (30 min)
 
 ### Objectif
-Générer et installer des services systemd pour démarrage automatique au boot.
+Déployer TaskPlatform comme services systemd avec Quadlet (approche moderne, Podman 4.4+).
 
-### 3.1 - Génération des services
+> **Note** : Quadlet remplace l'ancienne méthode `podman generate systemd` (dépréciée).
+> Voir le [TP4](../TP4-systemd/) pour une introduction complète à Quadlet.
 
-**Script `scripts/generate-systemd.sh` :**
+### 3.1 - Comprendre Quadlet
 
-Créer un script qui :
-1. Arrête proprement la stack si elle tourne
-2. Génère les services systemd avec `podman generate systemd`
-3. Installe les services en mode user
-4. Active les services au démarrage
+**Quadlet** transforme des fichiers de configuration déclaratifs en services systemd :
 
-**Concepts appliqués :**
-- `podman generate systemd --new --files` (TP4)
-- Services user systemd (TP4)
-- Dépendances entre services (TP4)
-
-### 3.2 - Configuration des services
-
-**Fichiers à générer :**
 ```
-~/.config/systemd/user/
-├── pod-taskplatform.service          # Pod principal
-├── container-postgres.service
-├── container-redis.service
-├── container-backend.service
-├── container-frontend.service
-├── container-nginx.service
-├── container-prometheus.service
-└── container-grafana.service
+┌─────────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│  postgres.container │────▶│    Quadlet       │────▶│  postgres.service   │
+│  (fichier déclaratif)│     │   (générateur)   │     │  (unité systemd)    │
+└─────────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
-**Ordre de démarrage souhaité :**
-1. PostgreSQL, Redis (parallèle)
-2. Backend (attend DB)
-3. Frontend (parallèle avec Backend)
-4. Nginx (attend Frontend + Backend)
-5. Prometheus, Grafana (parallèle)
+**Avantages de Quadlet :**
+- Fichiers simples et déclaratifs (comme docker-compose)
+- Mises à jour automatiques avec les nouvelles versions de Podman
+- Gestion native des dépendances
+- Intégration complète avec systemd
 
-### 3.3 - Gestion du service
+### 3.2 - Structure des fichiers Quadlet
+
+Les fichiers sont fournis dans le répertoire `quadlet/` :
+
+```
+quadlet/
+├── taskplatform-backend.network   # Réseau DB/Redis/API
+├── taskplatform-frontend.network  # Réseau Nginx/React
+├── taskplatform-monitoring.network # Réseau Prometheus/Grafana
+├── postgres-data.volume           # Volume PostgreSQL
+├── redis-data.volume              # Volume Redis
+├── prometheus-data.volume         # Volume Prometheus
+├── grafana-data.volume            # Volume Grafana
+├── postgres.container             # PostgreSQL
+├── redis.container                # Redis
+├── backend.container              # API Node.js
+├── frontend.container             # React
+├── nginx.container                # Reverse proxy
+├── prometheus.container           # Monitoring
+├── grafana.container              # Dashboards
+├── deploy-quadlet.sh              # Script d'installation
+└── README.md                      # Documentation détaillée
+```
+
+### 3.3 - Installation avec le script
 
 ```bash
-# Recharger systemd
+# Méthode recommandée : utiliser le script
+cd quadlet/
+./deploy-quadlet.sh install
+
+# Le script va :
+# 1. Vérifier les prérequis (Podman 4.4+, systemd)
+# 2. Construire les images locales
+# 3. Configurer les variables d'environnement
+# 4. Copier les fichiers Quadlet
+# 5. Démarrer les services
+```
+
+### 3.4 - Installation manuelle
+
+```bash
+# 1. Construire les images
+podman build -t localhost/taskplatform-backend:latest ./app/backend
+podman build -t localhost/taskplatform-frontend:latest ./app/frontend
+podman build -t localhost/taskplatform-nginx:latest ./nginx
+
+# 2. Configurer les variables d'environnement
+mkdir -p ~/.config/containers
+cp quadlet/taskplatform.env.example ~/.config/containers/taskplatform.env
+# Éditer le fichier avec vos mots de passe
+
+# 3. Installer les fichiers Quadlet
+mkdir -p ~/.config/containers/systemd
+cp quadlet/*.container quadlet/*.network quadlet/*.volume ~/.config/containers/systemd/
+
+# 4. Recharger systemd
 systemctl --user daemon-reload
 
-# Activer au démarrage
-systemctl --user enable pod-taskplatform.service
+# 5. Démarrer les services
+systemctl --user enable --now postgres redis backend frontend nginx prometheus grafana
+```
 
-# Démarrer
-systemctl --user start pod-taskplatform.service
+### 3.5 - Gestion des services
 
-# Vérifier le statut
-systemctl --user status pod-taskplatform.service
+```bash
+# Statut de tous les services
+systemctl --user status postgres redis backend frontend nginx prometheus grafana
 
-# Logs
-journalctl --user -u pod-taskplatform.service -f
+# Logs d'un service
+journalctl --user -u backend -f
+
+# Redémarrer un service
+systemctl --user restart backend
+
+# Arrêter tous les services
+systemctl --user stop nginx grafana prometheus frontend backend redis postgres
+
+# Voir l'unité systemd générée par Quadlet
+systemctl --user cat backend
+```
+
+### 3.6 - Vérifier le déploiement
+
+```bash
+# Vérifier que les services sont actifs
+./quadlet/deploy-quadlet.sh status
+
+# Tester l'application
+curl http://localhost/api/health
+curl http://localhost:9090/-/healthy  # Prometheus
+curl http://localhost:3001/api/health  # Grafana
 ```
 
 ### 📝 Checklist Exercice 3
 
-- [ ] Script generate-systemd.sh créé
-- [ ] Services systemd générés
-- [ ] Services installés en mode user
-- [ ] Dépendances configurées
-- [ ] Services activés au boot
+- [ ] Images construites (`podman images | grep taskplatform`)
+- [ ] Variables d'environnement configurées
+- [ ] Fichiers Quadlet installés dans `~/.config/containers/systemd/`
+- [ ] Services démarrés avec `systemctl --user`
+- [ ] Application accessible sur http://localhost
+- [ ] Services activés au démarrage (`enable`)
 - [ ] Test de redémarrage effectué
 
 **Validation :**
@@ -669,8 +733,8 @@ ssh ec2-user@$(terraform output -raw public_ip)
 - [ ] Aucune vulnérabilité HIGH/CRITICAL
 
 #### Automatisation
-- [ ] Services systemd installés
-- [ ] Auto-start au boot fonctionne
+- [ ] Services Quadlet installés (`~/.config/containers/systemd/`)
+- [ ] Auto-start au boot fonctionne (`systemctl --user enable`)
 - [ ] Scripts de backup/restore testés
 - [ ] Documentation à jour
 
@@ -861,7 +925,7 @@ podman exec -i postgres psql -U taskuser taskdb < $1
 - ✅ Networking avancé Podman
 - ✅ Gestion des secrets
 - ✅ Monitoring et observabilité
-- ✅ Automatisation systemd
+- ✅ Automatisation Quadlet/systemd
 - ✅ Déploiement cloud
 
 ### Opérationnel

@@ -1,0 +1,7 @@
+# Volume pour les données Grafana
+
+[Volume]
+VolumeName=taskplatform-grafana-data
+
+[Install]
+WantedBy=default.target

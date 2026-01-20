@@ -1,0 +1,39 @@
+# Nginx Reverse Proxy pour TaskPlatform
+# Nécessite de construire l'image au préalable:
+# podman build -t localhost/taskplatform-nginx:latest ./nginx
+
+[Unit]
+Description=TaskPlatform Nginx Reverse Proxy
+After=frontend.service backend.service
+Wants=frontend.service backend.service
+
+[Container]
+ContainerName=taskplatform-nginx
+Image=localhost/taskplatform-nginx:latest
+
+# Ports exposés
+PublishPort=80:80
+PublishPort=443:443
+
+# Réseaux (accès frontend et backend)
+Network=taskplatform-frontend.network
+Network=taskplatform-backend.network
+
+# Volume pour les certificats SSL (lecture seule)
+Volume=%h/taskplatform/nginx/ssl:/etc/nginx/ssl:ro
+
+# Healthcheck
+HealthCmd=wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+
+# Limites de ressources
+PodmanArgs=--memory=256m --cpus=0.5
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

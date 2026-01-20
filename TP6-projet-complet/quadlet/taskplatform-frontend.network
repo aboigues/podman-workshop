@@ -1,0 +1,14 @@
+# Réseau frontend pour les services exposés
+# Nginx, Frontend
+
+[Network]
+NetworkName=taskplatform-frontend
+Subnet=10.89.2.0/24
+Gateway=10.89.2.1
+
+# Options
+Driver=bridge
+DisableDNS=false
+
+[Install]
+WantedBy=default.target

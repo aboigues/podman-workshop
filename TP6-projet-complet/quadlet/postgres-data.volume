@@ -1,0 +1,7 @@
+# Volume pour les données PostgreSQL
+
+[Volume]
+VolumeName=taskplatform-postgres-data
+
+[Install]
+WantedBy=default.target

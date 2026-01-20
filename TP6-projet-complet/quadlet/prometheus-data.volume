@@ -1,0 +1,7 @@
+# Volume pour les données Prometheus
+
+[Volume]
+VolumeName=taskplatform-prometheus-data
+
+[Install]
+WantedBy=default.target

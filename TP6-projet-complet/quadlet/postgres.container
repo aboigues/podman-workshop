@@ -1,0 +1,36 @@
+# PostgreSQL Database pour TaskPlatform
+# Service de base de données principale
+
+[Unit]
+Description=TaskPlatform PostgreSQL Database
+After=network-online.target
+
+[Container]
+ContainerName=taskplatform-db
+Image=docker.io/library/postgres:16-alpine
+
+# Configuration via fichier d'environnement
+EnvironmentFile=%h/.config/containers/taskplatform.env
+
+# Volume persistant
+Volume=postgres-data.volume:/var/lib/postgresql/data:Z
+
+# Réseau
+Network=taskplatform-backend.network
+
+# Healthcheck
+HealthCmd=pg_isready -U taskplatform -d taskplatform
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+
+# Limites de ressources
+PodmanArgs=--memory=1g --cpus=1.0
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=90
+
+[Install]
+WantedBy=default.target
