@@ -19,9 +19,18 @@ dnf install -y podman podman-compose git curl
 # Vérifier l'installation
 podman --version
 
-# Configurer le socket Podman pour l'utilisateur ec2-user
-echo "Configuration du socket Podman..."
-systemctl enable --now podman.socket
+# Configurer Podman pour l'utilisateur ec2-user (rootless)
+echo "Configuration de Podman rootless pour ec2-user..."
+
+# Permettre aux utilisateurs non-root de binder sur les ports >= 80
+echo "net.ipv4.ip_unprivileged_port_start=80" >> /etc/sysctl.d/99-podman.conf
+sysctl -w net.ipv4.ip_unprivileged_port_start=80
+
+# Activer le linger pour que les conteneurs persistent après déconnexion
+loginctl enable-linger ec2-user
+
+# Activer le socket Podman au niveau utilisateur (pour l'API Docker-compatible)
+sudo -u ec2-user XDG_RUNTIME_DIR="/run/user/$(id -u ec2-user)" systemctl --user enable podman.socket
 
 # Créer un script de test pour ec2-user
 cat > /home/ec2-user/test-podman.sh << 'EOF'
