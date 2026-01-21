@@ -722,7 +722,7 @@ curl -k https://localhost
 
 ---
 
-## 🎁 Exercice Bonus : Déploiement AWS (optionnel, 30 min)
+## 🎁 Exercice Bonus : Déploiement AWS (optionnel)
 
 ### Objectif
 Déployer la stack complète sur AWS avec Terraform.
@@ -730,77 +730,86 @@ Déployer la stack complète sur AWS avec Terraform.
 ### Architecture AWS
 
 ```
-VPC (10.0.0.0/16)
-├── Public Subnet (10.0.1.0/24)
+AWS Cloud
+├── VPC (default)
 │   └── EC2 Instance (t3.medium)
-│       ├── Podman installé
-│       ├── Stack complète
-│       └── Security Group (80, 443, 22)
-├── RDS PostgreSQL (optionnel)
-└── ElastiCache Redis (optionnel)
+│       ├── Amazon Linux 2023
+│       ├── Podman + podman-compose
+│       └── Stack TaskPlatform complète
+└── Security Group
+    ├── SSH (22)
+    ├── Application (8080)
+    ├── Grafana (3001)
+    └── Prometheus (9090)
 ```
 
-### Terraform Configuration
+### Prérequis
 
-**Fichier `terraform/main.tf` :**
-
-```hcl
-resource "aws_instance" "podman_host" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t3.medium"
-
-  user_data = file("${path.module}/user-data.sh")
-
-  tags = {
-    Name = "taskplatform-podman"
-  }
-}
-```
-
-**User data - installation automatique :**
-```bash
-#!/bin/bash
-# Installation Podman
-dnf install -y podman podman-compose git
-
-# Clone du projet
-git clone <repo> /opt/taskplatform
-cd /opt/taskplatform/TP6-projet-complet
-
-# Setup et démarrage
-./scripts/deploy.sh
-```
+- Terraform >= 1.0
+- AWS CLI configuré
+- Une paire de clés SSH dans AWS
 
 ### Déploiement
+
+Les fichiers Terraform sont disponibles dans le dossier `terraform/`.
 
 ```bash
 cd terraform
 
-# Initialiser
+# Créer une paire de clés SSH (si nécessaire)
+aws ec2 create-key-pair --key-name taskplatform-key \
+    --query 'KeyMaterial' --output text > ~/.ssh/taskplatform-key.pem
+chmod 400 ~/.ssh/taskplatform-key.pem
+
+# Initialiser Terraform
 terraform init
 
-# Planifier
+# Vérifier le plan
 terraform plan
 
-# Déployer
-terraform apply -auto-approve
+# Déployer (confirmer avec 'yes')
+terraform apply
 
-# Récupérer l'IP publique
-terraform output public_ip
+# Récupérer les URLs
+terraform output
+```
 
-# Se connecter
-ssh ec2-user@$(terraform output -raw public_ip)
+### Accès aux services
+
+```bash
+# Se connecter en SSH
+ssh -i ~/.ssh/taskplatform-key.pem ec2-user@$(terraform output -raw public_ip)
+
+# Une fois connecté, vérifier l'état
+tp status
+tp health
+
+# URLs des services
+terraform output app_url        # Application
+terraform output grafana_url    # Grafana
+terraform output prometheus_url # Prometheus
+```
+
+Le mot de passe Grafana est généré automatiquement :
+```bash
+cat ~/grafana-credentials.txt
+```
+
+### Destruction
+
+```bash
+terraform destroy
 ```
 
 ### 📝 Checklist Bonus
 
-- [ ] Terraform configuré
-- [ ] VPC et subnets créés
-- [ ] Security Group configuré
-- [ ] Instance EC2 lancée
-- [ ] Podman installé automatiquement
-- [ ] Stack déployée automatiquement
-- [ ] Application accessible publiquement
+- [ ] Clé SSH créée dans AWS
+- [ ] `terraform init` réussi
+- [ ] `terraform apply` réussi
+- [ ] Instance EC2 accessible en SSH
+- [ ] Application accessible sur port 8080
+- [ ] Grafana accessible sur port 3001
+- [ ] Prometheus accessible sur port 9090
 
 ---
 
