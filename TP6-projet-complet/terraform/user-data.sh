@@ -11,6 +11,8 @@ echo "=== Début user-data: $(date) ==="
 # Variables (injectées par Terraform)
 GIT_REPO="${git_repo}"
 INSTALL_DIR="/opt/taskplatform"
+EC2_USER="ec2-user"
+EC2_UID=$(id -u $EC2_USER)
 
 # Mettre à jour le système
 echo "Mise à jour du système..."
@@ -31,12 +33,21 @@ echo "net.ipv4.ip_unprivileged_port_start=80" >> /etc/sysctl.d/99-podman.conf
 sysctl -w net.ipv4.ip_unprivileged_port_start=80
 
 # Activer le linger pour que les conteneurs persistent après déconnexion
-loginctl enable-linger ec2-user
+loginctl enable-linger $EC2_USER
+
+# Créer le XDG_RUNTIME_DIR manuellement (nécessaire avant le premier login)
+echo "Création du XDG_RUNTIME_DIR pour $EC2_USER..."
+mkdir -p /run/user/$EC2_UID
+chown $EC2_USER:$EC2_USER /run/user/$EC2_UID
+chmod 700 /run/user/$EC2_UID
 
 # Cloner le repository
 echo "Clonage du repository..."
-git clone "$GIT_REPO" "$INSTALL_DIR"
-chown -R ec2-user:ec2-user "$INSTALL_DIR"
+if ! git clone "$GIT_REPO" "$INSTALL_DIR"; then
+    echo "ERREUR: Impossible de cloner le repository"
+    exit 1
+fi
+chown -R $EC2_USER:$EC2_USER "$INSTALL_DIR"
 
 # Créer le fichier .env
 echo "Configuration de l'environnement..."
@@ -87,38 +98,49 @@ NGINX_PORT=8080
 NGINX_SSL_PORT=443
 EOF
 
-chown ec2-user:ec2-user .env
+chown $EC2_USER:$EC2_USER .env
 chmod 600 .env
 
 # Sauvegarder le mot de passe Grafana pour l'utilisateur
-echo "Grafana admin password: $GRAFANA_PASSWORD" > /home/ec2-user/grafana-credentials.txt
-chown ec2-user:ec2-user /home/ec2-user/grafana-credentials.txt
-chmod 600 /home/ec2-user/grafana-credentials.txt
+echo "Grafana admin password: $GRAFANA_PASSWORD" > /home/$EC2_USER/grafana-credentials.txt
+chown $EC2_USER:$EC2_USER /home/$EC2_USER/grafana-credentials.txt
+chmod 600 /home/$EC2_USER/grafana-credentials.txt
 
 # Déployer la stack en tant que ec2-user
 echo "Déploiement de la stack TaskPlatform..."
-sudo -u ec2-user bash -c "
-    cd $INSTALL_DIR/TP6-projet-complet
-    export XDG_RUNTIME_DIR=/run/user/\$(id -u)
+sudo -u $EC2_USER XDG_RUNTIME_DIR=/run/user/$EC2_UID bash -c '
+    cd /opt/taskplatform/TP6-projet-complet
 
     # Build des images
-    echo 'Build des images...'
-    podman-compose build
+    echo "Build des images..."
+    if ! podman-compose build; then
+        echo "ERREUR: Build des images échoué"
+        exit 1
+    fi
 
     # Démarrage de la stack
-    echo 'Démarrage de la stack...'
-    podman-compose up -d
+    echo "Démarrage de la stack..."
+    if ! podman-compose up -d; then
+        echo "ERREUR: Démarrage de la stack échoué"
+        exit 1
+    fi
 
     # Attendre que les services soient prêts
-    echo 'Attente du démarrage des services...'
+    echo "Attente du démarrage des services..."
     sleep 30
 
-    # Vérifier l'état
+    # Vérifier létat
     podman-compose ps
-"
+'
 
-# Créer un script de gestion pour ec2-user
-cat > /home/ec2-user/taskplatform.sh << 'EOF'
+# Vérifier que le déploiement a réussi
+if [ $? -ne 0 ]; then
+    echo "ERREUR: Déploiement de la stack échoué"
+    exit 1
+fi
+
+# Créer un script de gestion pour l'utilisateur
+cat > /home/$EC2_USER/taskplatform.sh << 'EOF'
 #!/bin/bash
 # Script de gestion TaskPlatform
 
@@ -167,11 +189,16 @@ case "$1" in
 esac
 EOF
 
-chmod +x /home/ec2-user/taskplatform.sh
-chown ec2-user:ec2-user /home/ec2-user/taskplatform.sh
+chmod +x /home/$EC2_USER/taskplatform.sh
+chown $EC2_USER:$EC2_USER /home/$EC2_USER/taskplatform.sh
+
+# Récupérer l'IP publique et la stocker (évite les appels répétés au metadata service)
+PUBLIC_IP=$(curl -s --connect-timeout 5 http://169.254.169.254/latest/meta-data/public-ipv4 || echo "IP_NON_DISPONIBLE")
+echo "$PUBLIC_IP" > /home/$EC2_USER/.instance-public-ip
+chown $EC2_USER:$EC2_USER /home/$EC2_USER/.instance-public-ip
 
 # Ajouter des alias utiles
-cat >> /home/ec2-user/.bashrc << 'EOF'
+cat >> /home/$EC2_USER/.bashrc << 'EOF'
 
 # Alias TaskPlatform
 alias tp='~/taskplatform.sh'
@@ -181,22 +208,26 @@ alias docker='podman'
 alias dc='podman-compose'
 
 # Message de bienvenue
-echo "========================================"
-echo "  TaskPlatform - Instance AWS"
-echo "========================================"
-echo ""
-echo "Commandes utiles:"
-echo "  tp status  - État des conteneurs"
-echo "  tp health  - Vérifier les endpoints"
-echo "  tp logs    - Voir les logs"
-echo ""
-echo "Accès aux services:"
-echo "  Application: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
-echo "  Grafana:     http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):3001"
-echo "  Prometheus:  http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):9090"
-echo ""
-echo "Credentials Grafana: cat ~/grafana-credentials.txt"
-echo "========================================"
+_show_welcome() {
+    local PUBLIC_IP=$(cat ~/.instance-public-ip 2>/dev/null || echo "IP_NON_DISPONIBLE")
+    echo "========================================"
+    echo "  TaskPlatform - Instance AWS"
+    echo "========================================"
+    echo ""
+    echo "Commandes utiles:"
+    echo "  tp status  - État des conteneurs"
+    echo "  tp health  - Vérifier les endpoints"
+    echo "  tp logs    - Voir les logs"
+    echo ""
+    echo "Accès aux services:"
+    echo "  Application: http://$PUBLIC_IP:8080"
+    echo "  Grafana:     http://$PUBLIC_IP:3001"
+    echo "  Prometheus:  http://$PUBLIC_IP:9090"
+    echo ""
+    echo "Credentials Grafana: cat ~/grafana-credentials.txt"
+    echo "========================================"
+}
+_show_welcome
 EOF
 
 echo "=== Fin user-data: $(date) ==="
