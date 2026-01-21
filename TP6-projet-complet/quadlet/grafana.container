@@ -7,7 +7,7 @@ Wants=prometheus.service
 
 [Container]
 ContainerName=taskplatform-grafana
-Image=docker.io/grafana/grafana:latest
+Image=docker.io/grafana/grafana:11.2.2
 
 # Configuration via fichier d'environnement
 EnvironmentFile=%h/.config/containers/taskplatform.env

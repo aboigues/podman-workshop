@@ -31,12 +31,14 @@ services:
     image: redis:8-alpine
     container_name: taskplatform-redis
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     networks:
       - backend-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -139,7 +141,7 @@ services:
 
   # Prometheus - Monitoring
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.54.1
     container_name: taskplatform-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -168,7 +170,7 @@ services:
 
   # Grafana - Dashboards
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.2.2
     container_name: taskplatform-grafana
     environment:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}

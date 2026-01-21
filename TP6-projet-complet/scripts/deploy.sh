@@ -48,7 +48,9 @@ check_service() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if podman healthcheck run "$service_name" &>/dev/null; then
+        local status
+        status=$(podman inspect --format='{{.State.Health.Status}}' "$service_name" 2>/dev/null || echo "unknown")
+        if [ "$status" = "healthy" ]; then
             info "✓ $service_name est prêt"
             return 0
         fi

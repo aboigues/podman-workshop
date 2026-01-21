@@ -69,6 +69,11 @@ EOF
 
 info "✓ Fichier .env créé"
 
+# Charger les variables d'environnement pour les tests
+set -a
+source .env
+set +a
+
 # Créer les répertoires nécessaires
 info "Création des répertoires..."
 mkdir -p nginx/ssl
@@ -142,8 +147,8 @@ else
     warning "PostgreSQL n'est pas encore prêt (peut prendre plus de temps)"
 fi
 
-# Test Redis (port 6379)
-if podman exec taskplatform-redis redis-cli ping &>/dev/null; then
+# Test Redis (port 6379) - avec authentification
+if podman exec taskplatform-redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
     info "✓ Redis répond"
 else
     warning "Redis ne répond pas encore"
