@@ -151,8 +151,8 @@ podman-compose up -d
 podman-compose ps
 
 # 6. Accéder aux interfaces
-# - Application: http://localhost
-# - API: http://localhost/api
+# - Application: http://localhost:8080
+# - API: http://localhost:8080/api
 # - Grafana: http://localhost:3001 (admin/admin)
 # - Prometheus: http://localhost:9090
 ```
@@ -225,7 +225,7 @@ podman exec -it taskplatform-redis redis-cli -a "$REDIS_PASSWORD" ping
 
 ```bash
 # Health check de l'API
-curl http://localhost/api/health
+curl http://localhost:8080/api/health
 
 # Accès direct au backend (sans nginx)
 curl http://localhost:4000/api/health
@@ -563,7 +563,7 @@ systemctl --user cat backend
 ./quadlet/deploy-quadlet.sh status
 
 # Tester l'application
-curl http://localhost/api/health
+curl http://localhost:8080/api/health
 curl http://localhost:9090/-/healthy  # Prometheus
 curl http://localhost:3001/api/health  # Grafana
 ```
@@ -847,8 +847,8 @@ ssh ec2-user@$(terraform output -raw public_ip)
 ./scripts/test-complete.sh
 
 # 2. Test des endpoints
-curl http://localhost/api/health
-curl http://localhost/api/tasks
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/tasks
 curl http://localhost
 
 # 3. Test monitoring
@@ -857,13 +857,13 @@ curl http://localhost:3001/api/health
 
 # 4. Test persistence
 # Créer des données
-curl -X POST http://localhost/api/tasks -d '{"title":"Test"}'
+curl -X POST http://localhost:8080/api/tasks -d '{"title":"Test"}'
 
 # Redémarrer
 podman-compose restart
 
 # Vérifier données toujours présentes
-curl http://localhost/api/tasks
+curl http://localhost:8080/api/tasks
 
 # 5. Test backup/restore
 ./scripts/backup.sh
