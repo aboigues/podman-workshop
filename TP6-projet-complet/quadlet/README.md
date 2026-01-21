@@ -8,6 +8,48 @@ Ce répertoire contient les fichiers Quadlet pour déployer TaskPlatform comme s
 - systemd avec mode utilisateur (`systemctl --user status`)
 - Images construites localement (voir étape 1)
 
+## ⚠️ Limitations WSL (Windows Subsystem for Linux)
+
+> **Important** : Quadlet n'est **pas recommandé** sous WSL en raison de limitations fondamentales.
+
+### Problèmes connus sous WSL
+
+| Limitation | Impact | Cause |
+|------------|--------|-------|
+| `loginctl enable-linger` non supporté | Les services s'arrêtent à la déconnexion | WSL ne supporte pas le linger systemd |
+| Pas de persistance | Services perdus à la fermeture de WSL | systemd est arrêté avec WSL |
+| Redémarrage Windows | Tout doit être relancé manuellement | WSL ne démarre pas automatiquement |
+
+### Alternative recommandée pour WSL
+
+Utilisez **docker-compose.yml** à la place de Quadlet :
+
+```bash
+# Depuis le répertoire TP6-projet-complet/
+cd ..
+podman-compose up -d
+
+# Vérifier les conteneurs
+podman ps
+
+# Arrêter
+podman-compose down
+```
+
+### Si vous voulez quand même utiliser Quadlet sous WSL
+
+Le script `deploy-quadlet.sh` détecte automatiquement WSL et affiche un avertissement.
+Vous pouvez continuer, mais gardez à l'esprit :
+
+1. **Relancer après chaque redémarrage de WSL** :
+   ```bash
+   ./deploy-quadlet.sh start
+   ```
+
+2. **Garder un terminal WSL ouvert** pour maintenir les services actifs
+
+3. **Utiliser `wsl --shutdown`** avec précaution car tous les conteneurs seront arrêtés
+
 ## Architecture
 
 ```
@@ -203,7 +245,7 @@ loginctl enable-linger $USER
 loginctl show-user $USER | grep Linger
 ```
 
-> **Note WSL** : `loginctl enable-linger` ne fonctionne pas sous WSL. Les services s'arrêteront à la fermeture de WSL.
+> **Note WSL** : Voir la section [Limitations WSL](#️-limitations-wsl-windows-subsystem-for-linux) en haut de ce document.
 
 ## Différences avec Docker Compose
 

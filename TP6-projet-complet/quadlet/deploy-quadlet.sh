@@ -41,6 +41,47 @@ print_warning() {
     echo -e "${YELLOW}[ATTENTION]${NC} $1"
 }
 
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+# Détection de WSL
+is_wsl() {
+    if grep -qiE "(microsoft|wsl)" /proc/version 2>/dev/null; then
+        return 0
+    fi
+    if [ -n "$WSL_DISTRO_NAME" ] || [ -n "$WSL_INTEROP" ]; then
+        return 0
+    fi
+    return 1
+}
+
+check_wsl_warning() {
+    if is_wsl; then
+        echo ""
+        echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}║                    ⚠️  ENVIRONNEMENT WSL DÉTECTÉ                  ║${NC}"
+        echo -e "${YELLOW}╠══════════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${YELLOW}║${NC} Quadlet a des limitations sous WSL :                              ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC}   • loginctl enable-linger ne fonctionne pas                      ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC}   • Les services s'arrêtent à la fermeture de WSL                 ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC}   • Pas de persistance après redémarrage Windows                  ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC}                                                                   ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC} ${GREEN}Recommandation :${NC} Utilisez docker-compose.yml à la place :        ${YELLOW}║${NC}"
+        echo -e "${YELLOW}║${NC}   cd ../  && podman-compose up -d                                 ${YELLOW}║${NC}"
+        echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+
+        read -p "Voulez-vous continuer avec Quadlet malgré ces limitations ? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Installation annulée. Utilisez docker-compose.yml pour WSL."
+            exit 0
+        fi
+        echo ""
+    fi
+}
+
 check_prerequisites() {
     print_header "Vérification des prérequis"
 
@@ -272,6 +313,7 @@ show_help() {
 # Main
 case "${1:-help}" in
     install)
+        check_wsl_warning
         check_prerequisites
         build_images
         setup_config
