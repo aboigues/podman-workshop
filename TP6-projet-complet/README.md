@@ -159,6 +159,108 @@ podman-compose ps
 
 ---
 
+## 🔧 Dépannage
+
+Si la stack ne fonctionne pas correctement, suivez cette checklist de vérification.
+
+### Checklist de diagnostic
+
+#### 1. Vérifier le fichier .env
+
+```bash
+# Le fichier .env existe-t-il ?
+ls -la .env
+
+# Si absent, le créer depuis l'exemple
+cp .env.example .env
+
+# Vérifier les valeurs configurées
+cat .env | grep -E "POSTGRES|DB_|REDIS"
+```
+
+#### 2. Vérifier l'état des conteneurs
+
+```bash
+# État de tous les conteneurs
+podman-compose ps
+
+# Chercher les conteneurs en erreur (Exit, Error, Restarting)
+podman ps -a | grep -E "Exit|Error|Restarting"
+```
+
+#### 3. Analyser les logs du backend
+
+```bash
+# Logs du backend (erreurs de connexion DB fréquentes)
+podman logs taskplatform-api
+
+# Chercher les erreurs de connexion
+podman logs taskplatform-api 2>&1 | grep -i "error\|connect\|password"
+```
+
+#### 4. Vérifier la base de données PostgreSQL
+
+```bash
+# Vérifier que PostgreSQL est healthy
+podman ps | grep taskplatform-db
+
+# Tester la connexion manuellement
+podman exec -it taskplatform-db psql -U taskuser -d taskdb -c "SELECT 1"
+
+# Voir les logs PostgreSQL
+podman logs taskplatform-db
+```
+
+#### 5. Vérifier Redis
+
+```bash
+# Tester la connexion Redis
+podman exec -it taskplatform-redis redis-cli ping
+
+# Avec mot de passe (si configuré)
+podman exec -it taskplatform-redis redis-cli -a "$REDIS_PASSWORD" ping
+```
+
+#### 6. Tester les endpoints
+
+```bash
+# Health check de l'API
+curl http://localhost/api/health
+
+# Accès direct au backend (sans nginx)
+curl http://localhost:4000/api/health
+```
+
+### Problèmes courants
+
+| Symptôme | Cause probable | Solution |
+|----------|---------------|----------|
+| Backend ne démarre pas | Fichier .env manquant | `cp .env.example .env` |
+| Erreur connexion DB | Mot de passe incorrect | Vérifier `POSTGRES_PASSWORD` dans .env |
+| Redis connection refused | Redis pas démarré | `podman-compose up -d redis` |
+| 502 Bad Gateway | Backend pas prêt | Attendre les healthchecks |
+| Permission denied | Mode rootless | `podman system migrate` |
+
+### Reset complet
+
+Si rien ne fonctionne, effectuer un reset complet :
+
+```bash
+# Arrêter tout
+podman-compose down -v
+
+# Supprimer les volumes (ATTENTION: perte de données)
+podman volume prune -f
+
+# Reconstruire et redémarrer
+podman-compose up -d --build
+
+# Suivre les logs
+podman-compose logs -f
+```
+
+---
+
 ## 📚 Exercice 1 : Préparation des Dockerfiles (45 min)
 
 ### Objectif
