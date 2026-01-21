@@ -26,8 +26,9 @@ WORKDIR /app
 
 # Copier seulement les dépendances de production
 COPY package*.json ./
-RUN npm install --only=production && \
-    npm cache clean --force
+RUN npm ci --omit=dev && \
+    npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm
 
 # Copier le code depuis le builder
 COPY --from=builder --chown=nodejs:nodejs /app/src ./src
