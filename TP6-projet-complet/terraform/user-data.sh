@@ -8,7 +8,8 @@ set -e
 exec > >(tee /var/log/user-data.log) 2>&1
 echo "=== Début user-data: $(date) ==="
 
-# Variables (injectées par Terraform)
+# Variables (injectées par Terraform via templatefile)
+# shellcheck disable=SC2154
 GIT_REPO="${git_repo}"
 INSTALL_DIR="/opt/taskplatform"
 EC2_USER="ec2-user"
@@ -37,9 +38,9 @@ loginctl enable-linger $EC2_USER
 
 # Créer le XDG_RUNTIME_DIR manuellement (nécessaire avant le premier login)
 echo "Création du XDG_RUNTIME_DIR pour $EC2_USER..."
-mkdir -p /run/user/$EC2_UID
-chown $EC2_USER:$EC2_USER /run/user/$EC2_UID
-chmod 700 /run/user/$EC2_UID
+mkdir -p "/run/user/$EC2_UID"
+chown "$EC2_USER:$EC2_USER" "/run/user/$EC2_UID"
+chmod 700 "/run/user/$EC2_UID"
 
 # Cloner le repository
 echo "Clonage du repository..."
@@ -108,7 +109,7 @@ chmod 600 /home/$EC2_USER/grafana-credentials.txt
 
 # Déployer la stack en tant que ec2-user
 echo "Déploiement de la stack TaskPlatform..."
-sudo -u $EC2_USER XDG_RUNTIME_DIR=/run/user/$EC2_UID bash -c '
+if ! sudo -u "$EC2_USER" XDG_RUNTIME_DIR="/run/user/$EC2_UID" bash -c '
     cd /opt/taskplatform/TP6-projet-complet
 
     # Build des images
@@ -131,10 +132,7 @@ sudo -u $EC2_USER XDG_RUNTIME_DIR=/run/user/$EC2_UID bash -c '
 
     # Vérifier létat
     podman-compose ps
-'
-
-# Vérifier que le déploiement a réussi
-if [ $? -ne 0 ]; then
+'; then
     echo "ERREUR: Déploiement de la stack échoué"
     exit 1
 fi
