@@ -6,7 +6,7 @@ After=network-online.target
 
 [Container]
 ContainerName=taskplatform-prometheus
-Image=docker.io/prom/prometheus:latest
+Image=docker.io/prom/prometheus:v2.54.1
 
 # Configuration Prometheus
 Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles

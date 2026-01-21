@@ -16,8 +16,8 @@ EnvironmentFile=%h/.config/containers/taskplatform.env
 
 # Variables spécifiques au backend
 Environment=NODE_ENV=production
-Environment=DB_HOST=taskplatform-db
-Environment=DB_PORT=5432
+Environment=POSTGRES_HOST=taskplatform-db
+Environment=POSTGRES_PORT=5432
 Environment=REDIS_HOST=taskplatform-redis
 Environment=REDIS_PORT=6379
 Environment=API_PORT=4000

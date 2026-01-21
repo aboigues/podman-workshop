@@ -3,8 +3,8 @@ FROM node:22.22.0-alpine AS builder
 
 WORKDIR /app
 
-# Arguments de build
-ARG REACT_APP_API_URL
+# Arguments de build (valeur par défaut si non spécifiée)
+ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
 # Copier les fichiers de dépendances
